@@ -1,33 +1,40 @@
 #!/bin/bash
 ##
-## Use yad dialogs to record sound stream, and edit saved sound file
-##
-## written by <damo> June 2015
 
-SRC="alsa_output.pci-0000_00_1b.0.analog-stereo.monitor"
-SOUNDEDIT="/usr/bin/mhwaveedit"
+SOUNDEDITOR="/usr/bin/mhwaveedit"
+FTYPE="mp3"
 
-RECORD=$(yad --file --save \
---title="Record stream" --height=600 --width=600 --center \
---button=Save:0 --button=gtk-cancel:1 \
-)
-RET=$?
-RECORD="$RECORD.mp3" # add mp3 filetype
+# get pulseaudio soundcard output name
+SRC=$(pacmd list-sources | awk '/name:.+\.monitor/' | awk '$0=$2' FS='<' RS='>')
 
-if [[ $RET = 0 ]];then
-    if [ -f "$RECORD" ];then
-        FYAD=$(yad --form --text="Overwrite?" --center)
-        if [[ $? = 0 ]];then
-            rm "$RECORD"    # avconv won't auto-overwrite, so delete existing file
+LOOP=1
+while [[ $LOOP = 1 ]];do
+    RECORD=$(yad --file --save \
+    --title="Record stream" --height=600 --width=600 --center \
+    --button=Save:0 --button=gtk-cancel:1 \
+    )
+    RET=$?
+    echo "RET= $RET"
+
+    RECORD="$RECORD.$FTYPE" # add file extension
+    echo "REC= $RECORD"
+    if [[ $RET = 0 ]];then
+        if [ -f "$RECORD" ];then
+            FYAD=$(yad --form --text="File exists. Overwrite?" --center)
+            if [[ $? = 0 ]];then
+                rm "$RECORD"    # avconv won't auto-overwrite, so delete existing file
+                break
+            else
+                echo "Cancelled overwrite..."
+            fi
         else
-            echo "Cancelled overwrite..."
-            exit
+            break
         fi
+    else
+        echo "Cancelled"
+        exit
     fi
-else
-    echo "Cancelled"
-    exit
-fi
+done
 
 avconv -f pulse -i $SRC "$RECORD" &
 
@@ -40,6 +47,6 @@ done | \
 yad --progress --pulsate --text="Stop recording?" --button=Stop:0 --center
 
 killall avconv
-$SOUNDEDIT "$RECORD" &      # run sound editor
+$SOUNDEDITOR "$RECORD" &      # run sound editor
 
 exit 0
