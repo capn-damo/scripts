@@ -1,0 +1,34 @@
+#!/bin/bash
+##
+# bl-script will make a new script in ~/bin, make it executable,
+# then open it in the default text editor.
+#
+# Written by <damo> for BunsenLabs
+
+BIN="$HOME/bin"
+FPATH="$BIN/$1"
+
+if [ $# -lt 1 ]; then
+    echo "Usage 'bl-script <scriptname>'"
+    exit
+fi
+
+if type bl-text-editor &>/dev/null;then 
+    EDITOR=$(readlink -f $(which bl-text-editor))
+else
+    EDITOR=xdg-open
+fi
+
+> "$FPATH"
+echo "#!/bin/bash" > "$FPATH"
+echo -e "##\n## $1\n" >> "$FPATH"
+
+chmod +x "$FPATH"
+
+if [[ $EDITOR = "/usr/bin/geany" ]];then
+    $EDITOR "$FPATH:5:1" &  # set cursor at last line
+else
+    $EDITOR "$FPATH" &
+fi
+
+exit 0
