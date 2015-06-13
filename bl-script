@@ -11,7 +11,7 @@ if [ $# -lt 1 ];then
     LOOP=1
     while [[ $LOOP == 1 ]];do
         NAME=$(zenity --entry --title="New script" \
-            --text="Enter script name..." --width=300)
+            --text="Enter script name..." --width=400)
         RET=$?
         if [[ $RET = 1 ]];then
             exit
@@ -31,6 +31,12 @@ if [ $# -lt 1 ];then
     done
 else
     NAME=$1
+    if [ -f "$BIN/$NAME" ];then
+        zenity --question --title="New script" --text="File exists. Overwrite?"
+        if [[ $? = 1 ]];then
+            exit
+        fi
+    fi
 fi
 
 FPATH="$BIN/$NAME"
