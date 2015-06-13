@@ -15,8 +15,18 @@ if [ $# -lt 1 ];then
         RET=$?
         if [[ $RET = 1 ]];then
             exit
-        elif ! [[ -z $NAME ]];then
-            LOOP=0
+        fi
+        if ! [[ -z $NAME ]];then
+            if [ -f "$BIN/$NAME" ];then
+                zenity --question --title="New script" --text="File exists. Overwrite?"
+                if [[ $? = 0 ]];then
+                    break
+                else
+                    echo "Cancelled overwrite..."
+                fi
+            else
+                break
+            fi
         fi
     done
 else
