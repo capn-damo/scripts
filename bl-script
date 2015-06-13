@@ -6,12 +6,24 @@
 # Written by <damo> for BunsenLabs
 
 BIN="$HOME/bin"
-FPATH="$BIN/$1"
 
-if [ $# -lt 1 ]; then
-    echo "Usage 'bl-script <scriptname>'"
-    exit
+if [ $# -lt 1 ];then
+    LOOP=1
+    while [[ $LOOP == 1 ]];do
+        NAME=$(zenity --entry --title="New script" \
+            --text="Enter script name..." --width=300)
+        RET=$?
+        if [[ $RET = 1 ]];then
+            exit
+        elif ! [[ -z $NAME ]];then
+            LOOP=0
+        fi
+    done
+else
+    NAME=$1
 fi
+
+FPATH="$BIN/$NAME"
 
 if type bl-text-editor &>/dev/null;then 
     EDITOR=$(readlink -f $(which bl-text-editor))
@@ -21,7 +33,7 @@ fi
 
 > "$FPATH"
 echo "#!/bin/bash" > "$FPATH"
-echo -e "##\n## $1\n" >> "$FPATH"
+echo -e "##\n## $NAME\n" >> "$FPATH"
 
 chmod +x "$FPATH"
 
