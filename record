@@ -7,28 +7,33 @@ FTYPE="mp3"
 # get pulseaudio soundcard output name
 SRC=$(pacmd list-sources | awk '/name:.+\.monitor/' | awk '$0=$2' FS='<' RS='>')
 
-LOOP=1
-while [[ $LOOP = 1 ]];do
+while : ;do
     RECORD=$(yad --file --save \
     --title="Record stream" --height=600 --width=600 --center \
     --button=Save:0 --button=gtk-cancel:1 \
     )
     RET=$?
-    echo "RET= $RET"
-
-    RECORD="$RECORD.$FTYPE" # add file extension
-    echo "REC= $RECORD"
+    RECORDING="$RECORD.$FTYPE" # add file extension
     if [[ $RET = 0 ]];then
-        if [ -f "$RECORD" ];then
-            FYAD=$(yad --form --text="File exists. Overwrite?" --center)
-            if [[ $? = 0 ]];then
-                rm "$RECORD"    # avconv won't auto-overwrite, so delete existing file
-                break
+        if ! [[ -z $RECORD ]];then
+            if [ -f "$RECORDING" ];then
+                DLG=$(yad --form --text="File exists. Overwrite?" \
+                --title="Record stream" --center --undecorated \
+                )
+                if [[ $? = 0 ]];then
+                    rm "$RECORDING"    # avconv won't auto-overwrite, so delete existing file
+                    break
+                else
+                    echo "Cancelled overwrite..."
+                fi
             else
-                echo "Cancelled overwrite..."
+                break
             fi
-        else
-            break
+        else    # loop if no filename entered
+            DLG=$(yad --form --text="Enter a filename" \
+            --title="Record stream" --center --undecorated --button=OK:0 \
+            --width=300 \
+            )
         fi
     else
         echo "Cancelled"
@@ -36,17 +41,28 @@ while [[ $LOOP = 1 ]];do
     fi
 done
 
-avconv -f pulse -i $SRC "$RECORD" &
+REC=$(yad --form --text="Start recording $RECORDING?" --title="Record stream" \
+    --center --button=OK:0 --button:Exit:1 \
+    --width=300 \
+    )
+if [[ $? = 0 ]];then
+    avconv -f pulse -i $SRC "$RECORDING" &
+    
+    # progress bar
+    while :; do
+        echo ""
+        sleep 1s
+    done | \
+    DLG=$(yad --progress --pulsate --text="Stop recording?" \
+    --title="Record stream" --button=Stop:0 --center \
+    --width=300 \
+    )
+    
+    killall avconv
+else
+    exit 0
+fi
 
-# progress bar
-running=1
-while [[ $running ]];do
-    echo ""
-    sleep 1s
-done | \
-yad --progress --pulsate --text="Stop recording?" --button=Stop:0 --center
-
-killall avconv
-$SOUNDEDITOR "$RECORD" &      # run sound editor
+$SOUNDEDITOR "$RECORDING" &      # run sound editor
 
 exit 0
