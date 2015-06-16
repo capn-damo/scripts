@@ -7,6 +7,23 @@
 CMD="youtube-dl -o "
 FTYPE="mp4"
 
+progbar(){                                      # progress bar
+    while :; do
+        echo ""
+        sleep 1s
+    done | DLG=$(yad --progress --pulsate --auto-kill \
+            --center --undecorated --title="Progress..." --width=200 \
+            )
+}
+
+killprog(){                                     # kill progress dialog
+    pgrep -a yad | while read pid cmd; do 
+        if echo "$cmd" | grep "Progress" &>/dev/null; then
+            kill "$pid"
+        fi     
+    done
+}
+
 while :; do
     ENTRY=$(yad --form --field="Enter Filename":SFL --field="Enter youtube url" --center)
     RET=$?
@@ -44,6 +61,9 @@ if [[ $RET = 0 ]];then
     done
 fi
 
-$CMD $RECORDING $URL
+progbar &
+$CMD $RECORDING $URL && killprog 
+
+notify-send 'Finished downloading youtube video' --expire-time=5000 --icon=dialog-information &
 
 exit 0
