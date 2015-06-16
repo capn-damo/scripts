@@ -1,0 +1,49 @@
+#!/bin/bash
+##
+## yad dialog to download and save youtube video
+##
+## written by <damo> June 2015
+
+CMD="youtube-dl -o "
+FTYPE="mp4"
+
+while :; do
+    ENTRY=$(yad --form --field="Enter Filename":SFL --field="Enter youtube url" --center)
+    RET=$?
+    SAVE=$(echo $ENTRY | awk -F'|' '{print $1}' )
+    URL=$(echo $ENTRY | awk -F'|' '{print $2}' | awk -F'=' '{print $NF}') # only need last bit of url
+    
+    if [[ $RET = 1 ]];then
+        exit
+    fi
+    if [[ -z $SAVE ]] || [[ -z $URL ]];then
+        yad --form --text="Complete both fields" --center
+    else
+        break
+    fi
+done
+
+RECORDING="$SAVE.$FTYPE" # add file extension
+
+if [[ $RET = 0 ]];then
+    while :; do
+        if [ -f "$RECORDING" ];then
+            DLG=$(yad --form --text="File exists. Overwrite?" \
+            --title="Record youtube" --center --undecorated \
+            )
+            if [[ $? = 1 ]];then
+                echo "Cancelled overwrite..."
+                exit
+            else
+                rm "$RECORDING"
+                break
+            fi
+        else
+            break
+        fi
+    done
+fi
+
+$CMD $RECORDING $URL
+
+exit 0
