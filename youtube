@@ -14,9 +14,23 @@ progbar(){                                      # progress bar
     done | DLG=$(yad --progress --pulsate --auto-kill \
             --center --undecorated --title="Progress..." --width=200 \
             )
+    if [[ $? = 0 ]];then
+        YKILL=$(pgrep -a youtube-dl | awk '{print $1}')
+        kill -SIGKILL $YKILL
+        if ! [[ $(pidof youtube-dl) ]];then
+            notify-send 'Download cancelled' --expire-time=5000 --icon=dialog-information &
+            if [[ -f "$RECORDING.part" ]];then
+                rm "$RECORDING.part"
+            fi
+            exit
+        fi
+    fi
 }
 
 killprog(){                                     # kill progress dialog
+    if ! [[ $(pidof youtube-dl) ]];then
+        notify-send 'Finished downloading youtube video' --expire-time=5000 --icon=dialog-information &
+    fi
     pgrep -a yad | while read pid cmd; do 
         if echo "$cmd" | grep "Progress" &>/dev/null; then
             kill "$pid"
@@ -62,8 +76,7 @@ if [[ $RET = 0 ]];then
 fi
 
 progbar &
-$CMD $RECORDING $URL && killprog 
-
-notify-send 'Finished downloading youtube video' --expire-time=5000 --icon=dialog-information &
+$CMD $RECORDING $URL && killprog
 
 exit 0
+
