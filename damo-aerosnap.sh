@@ -37,7 +37,6 @@ get_prop() {    # Retrieve var values using xprop
 }
 
 get_screen_dimensions() {
-    
     desktopW=$(xrandr -q | grep Screen | awk '{print $8}')  # total desktop width
     geom=$(xdotool getdisplaygeometry)                      # geometry of current display
     screenW=${geom%' '*}
@@ -67,8 +66,17 @@ get_WM_FRAME(){   # WM sets window frame and border sizes
     Woffset=$(( $BORDER_L + $BORDER_R ))
 }
 
-store_geometry() {
-    
+get_OB_margins() {
+    RC=".config/openbox/rc.xml"
+    tag="margins"
+    RCXML=$(sed -n "/<$tag>/,/<\/$tag>/p" "$RC")
+    OB_LEFT=$(grep -oPm1 "(?<=<left>)[^<]+" <<< "$RCXML")
+    OB_RIGHT=$(grep -oPm1 "(?<=<right>)[^<]+" <<< "$RCXML")
+    #OB_TOP=$(grep -oPm1 "(?<=<top>)[^<]+" <<< "$RCXML")
+    #OB_BOTTOM=$(grep -oPm1 "(?<=<bottom>)[^<]+" <<< "$RCXML")
+}
+
+store_geometry() {  # store values in X window properties
     eval $(xdotool getactivewindow getwindowgeometry --shell)
 
     set_prop "_INITIAL_DIMENSION_X" $X
@@ -88,6 +96,10 @@ store_geometry() {
         OFFSET_Y=$Yoffset
     fi
     set_prop "_OFFSET_Y" $OFFSET_Y
+    
+    get_OB_margins
+    set_prop "_OB_MARGIN_LEFT" $OB_LEFT
+    set_prop "_OB_MARGIN_RIGHT" $OB_RIGHT
 }
 
 load_stored_geometry() {
@@ -102,6 +114,8 @@ load_stored_geometry() {
     get_prop "_OFFSET_X" "adjust_X"
     get_prop "_OFFSET_Y" "adjust_Y"
     get_prop "_OFFSET_W" "adjust_W"
+    get_prop "_OB_MARGIN_LEFT" "OB_margin_left"
+    get_prop "_OB_MARGIN_RIGHT" "OB_margin_right"
     
 }
 
@@ -119,12 +133,18 @@ restore_dimension_geometry() {
     xprop -id $WINDOW -remove _OFFSET_X
     xprop -id $WINDOW -remove _OFFSET_Y
     xprop -id $WINDOW -remove _OFFSET_W
+    xprop -id $WINDOW -remove _OB_MARGIN_LEFT
+    xprop -id $WINDOW -remove _OB_MARGIN_RIGHT
 }
 
 snap_left(){
-    MARGIN_L=$(( $1 + $X_zero ))
-    XPOS=$MARGIN_L
-    WIN_WIDTH_L=$((( $screenW / 2 ) - ( $MARGIN_L - $BORDER_L ) - $adjust_W + $X_zero ))
+    if [[ $1 != 0 ]];then
+        XPOS=$(( $1 + $X_zero ))    # don't need OB margin
+    else
+        XPOS=$(( $OB_margin_left + $X_zero ))  # add OB margin
+    fi
+    
+    WIN_WIDTH_L=$((( $screenW / 2 ) - ( $XPOS - $BORDER_L ) - $adjust_W + $X_zero ))
     
     wmctrl -r :ACTIVE: -b add,maximized_vert && \
     wmctrl -r :ACTIVE: -b remove,maximized_horz && \
@@ -132,7 +152,13 @@ snap_left(){
 }
 
 snap_right(){
-    MARGIN_R=$1
+    
+    if [[ $1 != 0 ]];then
+        MARGIN_R=$1    # don't need OB margin
+    else
+        MARGIN_R=$OB_margin_right  # add OB margin to right edge
+    fi
+
     XPOS=$((( $screenW / 2 ) + $adjust_W + $X_zero ))
     WIN_WIDTH_R=$((( $screenW / 2 ) - $MARGIN_R - $adjust_W ))
     
