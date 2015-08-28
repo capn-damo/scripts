@@ -5,11 +5,11 @@
 #
 # Written by <damo> Sept 2015
 #
-# The script emulates aerosnap, using X window properties for values.
-# Left and/or right screen margins can be specified
-# Works with dual monitors - windows will snap to edges of monitor they are on
+# The script emulates aerosnap, using X window properties to obtain and store values.
+# Left and/or right screen margins can be specified;
+# Honours user-defined Openbox left and right screen margins;
+# Works with dual monitors - windows will snap to edges of monitor they are on;
 #
-# TODO: Honour user-defined Openbox screen margins
 #
 ########################################################################
 
@@ -18,7 +18,7 @@ USAGE=$(echo -e "\vUSAGE:\tsnapping.sh [OPTION] <margin>"
         echo -e "--left \t\taerosnap to left screen edge"
         echo -e "--right \taerosnap to right screen edge"
         echo
-        echo -e "If no margin is specified, a value of 0 is used"
+        echo -e "If no margin is specified, the value set by Openbox is used"
 )
 
 ####    FUNCTIONS   ####################################################
@@ -41,7 +41,7 @@ get_screen_dimensions() {
     geom=$(xdotool getdisplaygeometry)                      # geometry of current display
     screenW=${geom%' '*}
     screenH=${geom#*' '}
-    # X position of active window
+    # X position of active window:
     WINPOS=$(xwininfo -id $(xdotool getactivewindow) | grep "Absolute upper-left X" | awk '{print $NF}')
     
     if [[ $WINPOS -gt $screenW ]];then
@@ -51,9 +51,9 @@ get_screen_dimensions() {
     fi
 }
 
-get_WM_FRAME(){   # WM sets window frame and border sizes
+get_WM_FRAME(){         # WM sets window frame and border sizes;
                         # Titlebar height depends on fontsize of Active titlebar
-    # get borders set by WM
+    # get borders set by WM:
     winFRAME_EXTENTS=$(xprop -id $WINDOW | grep "_NET_FRAME_EXTENTS" | awk -F "=" '{print $2}')
     winEXTENTS=${winFRAME_EXTENTS//,/}
     BORDER_L=$(echo $winEXTENTS | awk '{print $1}')
@@ -63,7 +63,6 @@ get_WM_FRAME(){   # WM sets window frame and border sizes
     
     Xoffset=$(( $BORDER_L + $BORDER_R ))    # Need corrections for wmctrl
     Yoffset=$(( $BORDER_T + $BORDER_B ))
-    Woffset=$(( $BORDER_L + $BORDER_R ))
 }
 
 get_OB_margins() {
@@ -85,9 +84,7 @@ store_geometry() {  # store values in X window properties
     set_prop "_INITIAL_DIMENSION_HEIGHT" $HEIGHT
     
     get_WM_FRAME  # Get frame and border sizes
-    
     set_prop "_OFFSET_X" $Xoffset
-    set_prop "_OFFSET_W" $Woffset
     
     # Use different corrections if window is decorated/undecorated
     if xprop -id $WINDOW | grep -q _OB_WM_STATE_UNDECORATED ;then
@@ -113,7 +110,6 @@ load_stored_geometry() {
     get_prop "_INITIAL_DIMENSION_HEIGHT" "initial_height"
     get_prop "_OFFSET_X" "adjust_X"
     get_prop "_OFFSET_Y" "adjust_Y"
-    get_prop "_OFFSET_W" "adjust_W"
     get_prop "_OB_MARGIN_LEFT" "OB_margin_left"
     get_prop "_OB_MARGIN_RIGHT" "OB_margin_right"
     
@@ -132,7 +128,6 @@ restore_dimension_geometry() {
     xprop -id $WINDOW -remove _INITIAL_DIMENSION_HEIGHT
     xprop -id $WINDOW -remove _OFFSET_X
     xprop -id $WINDOW -remove _OFFSET_Y
-    xprop -id $WINDOW -remove _OFFSET_W
     xprop -id $WINDOW -remove _OB_MARGIN_LEFT
     xprop -id $WINDOW -remove _OB_MARGIN_RIGHT
 }
@@ -144,7 +139,7 @@ snap_left(){
         XPOS=$(( $OB_margin_left + $X_zero ))  # add OB margin
     fi
     
-    WIN_WIDTH_L=$((( $screenW / 2 ) - ( $XPOS - $BORDER_L ) - $adjust_W + $X_zero ))
+    WIN_WIDTH_L=$((( $screenW / 2 ) - ( $XPOS - $BORDER_L ) - $adjust_X + $X_zero ))
     
     wmctrl -r :ACTIVE: -b add,maximized_vert && \
     wmctrl -r :ACTIVE: -b remove,maximized_horz && \
@@ -159,8 +154,8 @@ snap_right(){
         MARGIN_R=$OB_margin_right  # add OB margin to right edge
     fi
 
-    XPOS=$((( $screenW / 2 ) + $adjust_W + $X_zero ))
-    WIN_WIDTH_R=$((( $screenW / 2 ) - $MARGIN_R - $adjust_W ))
+    XPOS=$((( $screenW / 2 ) + $adjust_X + $X_zero ))
+    WIN_WIDTH_R=$((( $screenW / 2 ) - $MARGIN_R - $adjust_X ))
     
     wmctrl -r :ACTIVE: -b add,maximized_vert && \
     wmctrl -r :ACTIVE: -b remove,maximized_horz && \
@@ -184,7 +179,8 @@ if [[ $err -ne 0 ]]; then
     store_geometry
     get_prop "_OFFSET_X" "adjust_X"
     get_prop "_OFFSET_Y" "adjust_Y"
-    get_prop "_OFFSET_W" "adjust_W"
+    get_prop "_OB_MARGIN_LEFT" "OB_margin_left"
+    get_prop "_OB_MARGIN_RIGHT" "OB_margin_right"
     
     if [[ $2 ]];then
         MARGIN=$2
