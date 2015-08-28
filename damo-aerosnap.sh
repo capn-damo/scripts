@@ -7,6 +7,9 @@
 #
 # The script emulates aerosnap, using X window properties for values.
 # Left and/or right screen margins can be specified
+# Works with dual monitors - windows will snap to edges of monitor they are on
+#
+# TODO: Honour user-defined Openbox screen margins
 #
 ########################################################################
 
@@ -34,47 +37,53 @@ get_prop() {    # Retrieve var values using xprop
 }
 
 get_screen_dimensions() {
-  geom=$(wmctrl -d|head -n1 | awk '{print $4}')
-  screenW=${geom%x*}
-  screenH=${geom#*x}
+    
+    desktopW=$(xrandr -q | grep Screen | awk '{print $8}')  # total desktop width
+    geom=$(xdotool getdisplaygeometry)                      # geometry of current display
+    screenW=${geom%' '*}
+    screenH=${geom#*' '}
+    # X position of active window
+    WINPOS=$(xwininfo -id $(xdotool getactivewindow) | grep "Absolute upper-left X" | awk '{print $NF}')
+    
+    if [[ $WINPOS -gt $screenW ]];then
+        X_zero=$(( $desktopW - $screenW ))  # window is on R monitor
+    else
+        X_zero=0                            # window is on L monitor
+    fi
 }
 
-get_WM_FRAME_STRUT(){   # WM sets window frame and border sizes
+get_WM_FRAME(){   # WM sets window frame and border sizes
                         # Titlebar height depends on fontsize of Active titlebar
-    
-    winFRAME_STRUT=$(xprop -id $WINDOW | grep "FRAME_STRUT" | awk -F "=" '{print $2}')
-    winSTRUT=${winFRAME_STRUT//,/}
-    STRUT_L=$(echo $winSTRUT | awk '{print $1}')
-    STRUT_R=$(echo $winSTRUT | awk '{print $2}')
-    STRUT_T=$(echo $winSTRUT | awk '{print $3}')
-
-    winFRAME_EXTENTS=$(xprop -id $WINDOW | grep "FRAME_EXTENTS" | awk -F "=" '{print $2}')
+    # get borders set by WM
+    winFRAME_EXTENTS=$(xprop -id $WINDOW | grep "_NET_FRAME_EXTENTS" | awk -F "=" '{print $2}')
     winEXTENTS=${winFRAME_EXTENTS//,/}
-    EXT_L=$(echo $winEXTENTS | awk '{print $1}')
-    EXT_R=$(echo $winEXTENTS | awk '{print $2}')
-    EXT_T=$(echo $winEXTENTS | awk '{print $3}')
+    BORDER_L=$(echo $winEXTENTS | awk '{print $1}')
+    BORDER_R=$(echo $winEXTENTS | awk '{print $2}')
+    BORDER_T=$(echo $winEXTENTS | awk '{print $3}')
+    BORDER_B=$(echo $winEXTENTS | awk '{print $4}')
     
-    Xoffset=$(( $EXT_L + $STRUT_L ))    # Need corrections for wmctrl
-    Yoffset=$(( $EXT_T + $STRUT_T ))
-    Woffset=$(( $EXT_R + $STRUT_R ))
+    Xoffset=$(( $BORDER_L + $BORDER_R ))    # Need corrections for wmctrl
+    Yoffset=$(( $BORDER_T + $BORDER_B ))
+    Woffset=$(( $BORDER_L + $BORDER_R ))
 }
 
 store_geometry() {
     
     eval $(xdotool getactivewindow getwindowgeometry --shell)
+
     set_prop "_INITIAL_DIMENSION_X" $X
     set_prop "_INITIAL_DIMENSION_Y" $Y
     set_prop "_INITIAL_DIMENSION_WIDTH" $WIDTH
     set_prop "_INITIAL_DIMENSION_HEIGHT" $HEIGHT
     
-    get_WM_FRAME_STRUT  # Get frame and border sizes
+    get_WM_FRAME  # Get frame and border sizes
     
     set_prop "_OFFSET_X" $Xoffset
     set_prop "_OFFSET_W" $Woffset
     
     # Use different corrections if window is decorated/undecorated
     if xprop -id $WINDOW | grep -q _OB_WM_STATE_UNDECORATED ;then
-        OFFSET_Y=$(($STRUT_T + $EXT_T ))
+        OFFSET_Y=$(( $BORDER_T + $BORDER_B ))
     else
         OFFSET_Y=$Yoffset
     fi
@@ -97,8 +106,8 @@ load_stored_geometry() {
 }
 
 restore_dimension_geometry() {
-    Xpos=$((initial_x-adjust_X))    # Correct for frame and border values
-    Ypos=$((initial_y-adjust_Y))
+    Xpos=$(( initial_x - adjust_X ))    # Correct for frame and border values
+    Ypos=$(( initial_y - adjust_Y ))
 
     wmctrl -r :ACTIVE: -b remove,maximized_vert && \
     wmctrl -r :ACTIVE: -e 0,$Xpos,$Ypos,$initial_width,$initial_height
@@ -113,21 +122,23 @@ restore_dimension_geometry() {
 }
 
 snap_left(){
-    MARGIN_L=$1
-    WIN_WIDTH_L=$((($screenW / 2 ) - ($MARGIN_L - $EXT_L) - $adjust_W ))
+    MARGIN_L=$(( $1 + $X_zero ))
+    XPOS=$MARGIN_L
+    WIN_WIDTH_L=$((( $screenW / 2 ) - ( $MARGIN_L - $BORDER_L ) - $adjust_W + $X_zero ))
     
     wmctrl -r :ACTIVE: -b add,maximized_vert && \
     wmctrl -r :ACTIVE: -b remove,maximized_horz && \
-    wmctrl -r :ACTIVE: -e 0,$MARGIN_L,0,$WIN_WIDTH_L,-1
+    wmctrl -r :ACTIVE: -e 0,$XPOS,0,$WIN_WIDTH_L,-1
 }
 
 snap_right(){
     MARGIN_R=$1
-    WIN_WIDTH_R=$((($screenW / 2 ) - $MARGIN_R - $adjust_W ))
+    XPOS=$((( $screenW / 2 ) + $adjust_W + $X_zero ))
+    WIN_WIDTH_R=$((( $screenW / 2 ) - $MARGIN_R - $adjust_W ))
     
     wmctrl -r :ACTIVE: -b add,maximized_vert && \
     wmctrl -r :ACTIVE: -b remove,maximized_horz && \
-    wmctrl -r :ACTIVE: -e 0,$((($screenW / 2 ) + $adjust_W )),0,$WIN_WIDTH_R,-1
+    wmctrl -r :ACTIVE: -e 0,$XPOS,0,$WIN_WIDTH_R,-1
 }
 
 ####    END FUNCTIONS   ################################################
@@ -163,30 +174,4 @@ else
   restore_dimension_geometry
 fi
 
-    #for arg in "$@";do
-        #case "$arg" in
-            #-h|--help   )   echo "$USAGE"
-                            #echo
-                            #exit 0
-                            #;;
-            #-l|--left   )   if [[ $2 ]];then
-                                #snap_left $2
-                            #else
-                                #snap_left
-                            #fi
-                            #;;
-            #-r|--right  )   if [[ $2 ]];then
-                                #snap_right $2
-                            #else
-                                #snap_right
-                            #fi
-                            #;;
-            #*           )   if ! [[ $arg ]];then
-                                #echo "$USAGE"
-                                #echo
-                                #exit 1
-                            #fi
-                            #;;
-        #esac
-    #done
 
