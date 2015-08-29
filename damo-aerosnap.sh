@@ -5,11 +5,10 @@
 #
 # Written by <damo> Sept 2015
 #
-# The script emulates aerosnap, using X window properties for values.
-# Left and/or right screen margins can be specified
-# Works with dual monitors - windows will snap to edges of monitor they are on
-#
-# TODO: Honour user-defined Openbox screen margins
+# The script emulates aerosnap, using X window properties for getting and storing values.
+# Left and/or right screen margins can be specified;
+# Works with dual monitors - windows will snap to edges of monitor they are on;
+# Honours user-defined Openbox left and right screen margins
 #
 ########################################################################
 
@@ -18,7 +17,8 @@ USAGE=$(echo -e "\vUSAGE:\tsnapping.sh [OPTION] <margin>"
         echo -e "--left \t\taerosnap to left screen edge"
         echo -e "--right \taerosnap to right screen edge"
         echo
-        echo -e "If no margin is specified, a value of 0 is used"
+        echo -e "If no margin is specified, the left and right values"
+        echo -e "set for Openbox in rc.xml are used."
 )
 
 ####    FUNCTIONS   ####################################################
@@ -26,7 +26,6 @@ USAGE=$(echo -e "\vUSAGE:\tsnapping.sh [OPTION] <margin>"
 set_prop() {    # Add var values to X window properties
   propname=$1
   val=$2
-
   xprop -id $WINDOW -f $propname 32i -set $propname $val
 }
 
@@ -67,13 +66,11 @@ get_WM_FRAME(){   # WM sets window frame and border sizes
 }
 
 get_OB_margins() {
-    RC=".config/openbox/rc.xml"
+    RC="$HOME/.config/openbox/rc.xml"
     tag="margins"
     RCXML=$(sed -n "/<$tag>/,/<\/$tag>/p" "$RC")
     OB_LEFT=$(grep -oPm1 "(?<=<left>)[^<]+" <<< "$RCXML")
     OB_RIGHT=$(grep -oPm1 "(?<=<right>)[^<]+" <<< "$RCXML")
-    #OB_TOP=$(grep -oPm1 "(?<=<top>)[^<]+" <<< "$RCXML")
-    #OB_BOTTOM=$(grep -oPm1 "(?<=<bottom>)[^<]+" <<< "$RCXML")
 }
 
 store_geometry() {  # store values in X window properties
@@ -91,9 +88,9 @@ store_geometry() {  # store values in X window properties
     
     # Use different corrections if window is decorated/undecorated
     if xprop -id $WINDOW | grep -q _OB_WM_STATE_UNDECORATED ;then
-        OFFSET_Y=$(( $BORDER_T + $BORDER_B ))
-    else
         OFFSET_Y=$Yoffset
+    else
+        OFFSET_Y=$(( $BORDER_T * 2 ))
     fi
     set_prop "_OFFSET_Y" $OFFSET_Y
     
@@ -139,11 +136,15 @@ restore_dimension_geometry() {
 
 snap_left(){
     if [[ $1 != 0 ]];then
-        XPOS=$(( $1 + $X_zero ))    # don't need OB margin
+        if [[ $1 -lt $BORDER_L ]];then
+            XPOS=$(( $BORDER_L + $X_zero ))    # don't need OB margin
+        else
+            XPOS=$(( $1 + $BORDER_L + $X_zero ))
+        fi
     else
-        XPOS=$(( $OB_margin_left + $X_zero ))  # add OB margin
+        XPOS=$(( $OB_margin_left + $BORDER_L + $X_zero ))  # add OB margin
     fi
-    
+echo "Mleft= $XPOS"
     WIN_WIDTH_L=$((( $screenW / 2 ) - ( $XPOS - $BORDER_L ) - $adjust_W + $X_zero ))
     
     wmctrl -r :ACTIVE: -b add,maximized_vert && \
@@ -154,12 +155,16 @@ snap_left(){
 snap_right(){
     
     if [[ $1 != 0 ]];then
-        MARGIN_R=$1    # don't need OB margin
+        if [[ $1 -lt $BORDER_R ]];then
+            MARGIN_R=$BORDER_R    # don't need OB margin
+        else
+            MARGIN_R=$(( $1 + $BORDER_R ))
+        fi
     else
         MARGIN_R=$OB_margin_right  # add OB margin to right edge
     fi
-
-    XPOS=$((( $screenW / 2 ) + $adjust_W + $X_zero ))
+echo "Mright= $MARGIN_R"
+    XPOS=$((( $screenW / 2 ) + $BORDER_L + $X_zero ))
     WIN_WIDTH_R=$((( $screenW / 2 ) - $MARGIN_R - $adjust_W ))
     
     wmctrl -r :ACTIVE: -b add,maximized_vert && \
@@ -185,6 +190,8 @@ if [[ $err -ne 0 ]]; then
     get_prop "_OFFSET_X" "adjust_X"
     get_prop "_OFFSET_Y" "adjust_Y"
     get_prop "_OFFSET_W" "adjust_W"
+    get_prop "_OB_MARGIN_LEFT" "OB_margin_left"
+    get_prop "_OB_MARGIN_RIGHT" "OB_margin_right"
     
     if [[ $2 ]];then
         MARGIN=$2
