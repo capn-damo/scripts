@@ -8,11 +8,15 @@
 # The script emulates aerosnap, using X window properties for getting and storing values.
 # Left and/or right screen margins can be specified;
 # Works with dual monitors - windows will snap to edges of monitor they are on;
-# Honours user-defined Openbox left and right screen margins
+# Honours user-defined Openbox left and right screen margins;
+# Works with decorated and undecorated windows, and windows with no borders.
 #
+# TODO: window widths for some terminals too narrow with left snapping
+#       Tested with terminator, xterm, lxterm, xfce4-terminal,gnome-terminal
+#       (uxterm is OK)
 ########################################################################
 
-USAGE=$(echo -e "\vUSAGE:\tdamo-aerosnap.sh [OPTION] <margin>"
+USAGE=$(echo -e "\vUSAGE:\tdamo-aerosnap.sh [--help|--left|--right] <margin>"
         echo -e "\v--help \t\tUsage"
         echo -e "--left \t\taerosnap to left screen edge"
         echo -e "--right \taerosnap to right screen edge"
@@ -25,26 +29,25 @@ USAGE=$(echo -e "\vUSAGE:\tdamo-aerosnap.sh [OPTION] <margin>"
 ####    FUNCTIONS   ####################################################
 
 set_prop() {    # Add var values to X window properties
-  propname=$1
-  val=$2
-  xprop -id $WINDOW -f $propname 32i -set $propname $val
+  propname="$1"
+  val="$2"
+  xprop -id "$WINDOW" -f "$propname" 32i -set "$propname" "$val"
 }
 
 get_prop() {    # Retrieve var values using xprop
-  propname=$1
-  varname=$2
-  eval $varname=$(xprop -id $WINDOW $propname|awk '{print $3}')
+  propname="$1"
+  varname="$2"
+  eval "$varname"=$(xprop -id $WINDOW $propname | awk '{print $3}')
 }
 
 get_screen_dimensions() {
     desktopW=$(xrandr -q | grep Screen | awk '{print $8}')  # total desktop width
     geom=$(xdotool getdisplaygeometry)                      # geometry of current display
     screenW=${geom%' '*}
-    screenH=${geom#*' '}
-    # X position of active window
+    # X position of active window:
     WINPOS=$(xwininfo -id $(xdotool getactivewindow) | grep "Absolute upper-left X" | awk '{print $NF}')
     
-    if [[ $WINPOS -gt $screenW ]];then
+    if [[ "$WINPOS" -gt "$screenW" ]];then
         X_zero=$(( $desktopW - $screenW ))  # window is on R monitor
     else
         X_zero=0                            # window is on L monitor
@@ -81,29 +84,29 @@ get_OB_margins() {
 store_geometry() {  # store values in X window properties
     eval $(xdotool getactivewindow getwindowgeometry --shell)
 
-    set_prop "_INITIAL_DIMENSION_X" $X
-    set_prop "_INITIAL_DIMENSION_Y" $Y
-    set_prop "_INITIAL_DIMENSION_WIDTH" $WIDTH
-    set_prop "_INITIAL_DIMENSION_HEIGHT" $HEIGHT
+    set_prop "_INITIAL_DIMENSION_X" "$X"
+    set_prop "_INITIAL_DIMENSION_Y" "$Y"
+    set_prop "_INITIAL_DIMENSION_WIDTH" "$WIDTH"
+    set_prop "_INITIAL_DIMENSION_HEIGHT" "$HEIGHT"
     
     get_WM_FRAME  # Get frame and border sizes
-    set_prop "_OB_BORDER_L" $BORDER_L
-    set_prop "_OB_BORDER_R" $BORDER_R
-    set_prop "_OB_BORDER_T" $BORDER_T
-    set_prop "_OB_BORDER_B" $BORDER_B
-    set_prop "_OFFSET_X" $Xoffset
+    set_prop "_OB_BORDER_L" "$BORDER_L"
+    set_prop "_OB_BORDER_R" "$BORDER_R"
+    set_prop "_OB_BORDER_T" "$BORDER_T"
+    set_prop "_OB_BORDER_B" "$BORDER_B"
+    set_prop "_OFFSET_X" "$Xoffset"
     
     # Use different corrections if window is decorated/undecorated
     if xprop -id $WINDOW | grep -q _OB_WM_STATE_UNDECORATED ;then
-        OFFSET_Y=$Yoffset
+        OFFSET_Y="$Yoffset"
     else
         OFFSET_Y=$(( $BORDER_T * 2 ))
     fi
-    set_prop "_OFFSET_Y" $OFFSET_Y
+    set_prop "_OFFSET_Y" "$OFFSET_Y"
     
     get_OB_margins
-    set_prop "_OB_MARGIN_L" $OB_LEFT
-    set_prop "_OB_MARGIN_R" $OB_RIGHT
+    set_prop "_OB_MARGIN_L" "$OB_LEFT"
+    set_prop "_OB_MARGIN_R" "$OB_RIGHT"
 }
 
 load_stored_geometry() {
@@ -131,7 +134,7 @@ restore_dimension_geometry() {
     Ypos=$(( initial_y - adjust_Y ))
 
     wmctrl -r :ACTIVE: -b remove,maximized_vert && \
-    wmctrl -r :ACTIVE: -e 0,$Xpos,$Ypos,$initial_width,$initial_height
+    wmctrl -r :ACTIVE: -e 0,"$Xpos","$Ypos","$initial_width","$initial_height"
 
     xprop -id $WINDOW -remove _INITIAL_DIMENSION_X  # Clear X window properties
     xprop -id $WINDOW -remove _INITIAL_DIMENSION_Y
@@ -148,8 +151,8 @@ restore_dimension_geometry() {
 }
 
 snap_left(){
-    if [[ $1 != 0 ]];then
-        if [[ $1 -lt $OB_border_left ]];then
+    if [[ "$1" != 0 ]];then
+        if [[ "$1" -lt "$OB_border_left" ]];then
             XPOS=$(( $OB_border_left + $X_zero ))    # don't need OB margin
         else
             XPOS=$(( $1 + $OB_border_left + $X_zero ))
@@ -162,18 +165,18 @@ snap_left(){
     # Move window
     wmctrl -r :ACTIVE: -b add,maximized_vert && \
     wmctrl -r :ACTIVE: -b remove,maximized_horz && \
-    wmctrl -r :ACTIVE: -e 0,$XPOS,0,$WIN_WIDTH_L,-1
+    wmctrl -r :ACTIVE: -e 0,"$XPOS",0,"$WIN_WIDTH_L",-1
 }
 
 snap_right(){
-    if [[ $1 != 0 ]];then
-        if [[ $1 -lt $OB_border_right ]];then
-            MARGIN_R=$OB_border_right    # don't need OB margin
+    if [[ "$1" != 0 ]];then
+        if [[ "$1" -lt "$OB_border_right" ]];then
+            MARGIN_R="$OB_border_right"    # don't need OB margin
         else
             MARGIN_R=$(( $1 + $OB_border_right ))
         fi
     else
-        MARGIN_R=$OB_margin_right  # add OB margin to right edge
+        MARGIN_R="$OB_margin_right"  # add OB margin to right edge
     fi
     
     XPOS=$((( $screenW / 2 ) + $X_zero ))
@@ -181,7 +184,7 @@ snap_right(){
     WIN_WIDTH_R=$((( $screenW / 2 ) - $MARGIN_R - $adjust_X ))
     wmctrl -r :ACTIVE: -b add,maximized_vert && \
     wmctrl -r :ACTIVE: -b remove,maximized_horz && \
-    wmctrl -r :ACTIVE: -e 0,$XPOS,0,$WIN_WIDTH_R,-1
+    wmctrl -r :ACTIVE: -e 0,"$XPOS",0,"$WIN_WIDTH_R",-1
 }
 
 ####    END FUNCTIONS   ################################################
@@ -209,14 +212,14 @@ if [[ $err -ne 0 ]]; then
     get_prop "_OB_MARGIN_R" "OB_margin_right"
     
     if [[ $2 ]];then
-        MARGIN=$2
+        MARGIN="$2"
     else
         MARGIN=0
     fi
     if [[ $1 = "--left" ]];then
-        snap_left $MARGIN
+        snap_left "$MARGIN"
     elif [[ $1 = "--right" ]];then
-        snap_right $MARGIN
+        snap_right "$MARGIN"
     fi
 else
   restore_dimension_geometry
