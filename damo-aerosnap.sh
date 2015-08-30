@@ -12,8 +12,7 @@
 # Works with decorated and undecorated windows, and windows with no borders.
 #
 # TODO: window widths for some terminals too narrow with left snapping
-#       Tested with terminator, xterm, lxterm, xfce4-terminal,gnome-terminal
-#       (uxterm is OK)
+
 ########################################################################
 
 USAGE=$(echo -e "\vUSAGE:\tdamo-aerosnap.sh [--help|--left|--right] <margin>"
