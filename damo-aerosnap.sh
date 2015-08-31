@@ -11,9 +11,8 @@
 # Honours user-defined Openbox left and right screen margins;
 # Works with decorated and undecorated windows, and windows with no borders.
 #
-# TODO: window widths for some terminals too narrow with left snapping
-#       Tested with terminator, xterm, lxterm, xfce4-terminal,gnome-terminal
-#       (uxterm is OK)
+# TODO: Test for different screen resolutions with dual monitors
+#
 ########################################################################
 
 USAGE=$(echo -e "\vUSAGE:\tdamo-aerosnap.sh [--help|--left|--right] <margin>"
@@ -45,17 +44,17 @@ get_screen_dimensions() {
     geom=$(xdotool getdisplaygeometry)                      # geometry of current display
     screenW=${geom%' '*}
     # X position of active window:
-    WINPOS=$(xwininfo -id $(xdotool getactivewindow) | grep "Absolute upper-left X" | awk '{print $NF}')
+    WINPOS=$(xwininfo -id $WINDOW | grep "Absolute upper-left X")
     
-    if [[ "$WINPOS" -gt "$screenW" ]];then
+    if [[ ${WINPOS##*' '} -gt $screenW ]];then
         X_zero=$(( $desktopW - $screenW ))  # window is on R monitor
     else
         X_zero=0                            # window is on L monitor
     fi
 }
 
-get_WM_FRAME(){   # WM sets window frame and border sizes
-                        # Titlebar height depends on fontsize of Active titlebar
+get_WM_FRAME(){     # WM sets window frame and border sizes
+                    # Titlebar height depends on fontsize of Active titlebar
     # get borders set by WM
     winFRAME_EXTENTS=$(xprop -id $WINDOW | grep "_NET_FRAME_EXTENTS" | awk -F "=" '{print $2}')
     winEXTENTS=${winFRAME_EXTENTS//,/}
@@ -152,13 +151,14 @@ restore_dimension_geometry() {
 
 snap_left(){
     if [[ "$1" != 0 ]];then
-        if [[ "$1" -lt "$OB_border_left" ]];then
+        if [[ "$1" -le "$OB_border_left" ]];then
             XPOS=$(( $OB_border_left + $X_zero ))    # don't need OB margin
         else
             XPOS=$(( $1 + $OB_border_left + $X_zero ))
         fi
     else
         XPOS=$(( $OB_margin_left + $X_zero ))  # add OB margin
+        echo "XPOS= $XPOS"
     fi
     
     WIN_WIDTH_L=$((( $screenW / 2 ) - $XPOS - $adjust_X + $X_zero ))
@@ -170,7 +170,7 @@ snap_left(){
 
 snap_right(){
     if [[ "$1" != 0 ]];then
-        if [[ "$1" -lt "$OB_border_right" ]];then
+        if [[ "$1" -le "$OB_border_right" ]];then
             MARGIN_R="$OB_border_right"    # don't need OB margin
         else
             MARGIN_R=$(( $1 + $OB_border_right ))
@@ -224,6 +224,7 @@ if [[ $err -ne 0 ]]; then
 else
   restore_dimension_geometry
 fi
+
 
 
 
