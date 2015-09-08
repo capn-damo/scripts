@@ -11,13 +11,10 @@
 # Honours user-defined Openbox left and right screen margins;
 # Works with decorated and undecorated windows, and windows with no borders.
 #
-<<<<<<< HEAD
 # TODO: Test for different screen resolutions with dual monitors
 #
-=======
 # TODO: window widths for some terminals too narrow with left snapping
 
->>>>>>> 7ddbb51df3b0400a07eb2e69932b11ba20fce4b0
 ########################################################################
 
 USAGE=$(echo -e "\vUSAGE:\tdamo-aerosnap.sh [--help|--left|--right] <margin>"
