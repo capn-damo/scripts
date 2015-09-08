@@ -10,6 +10,7 @@
 # Works with dual monitors - windows will snap to edges of monitor they are on;
 # Honours user-defined Openbox left and right screen margins;
 # Works with decorated and undecorated windows, and windows with no borders.
+# Doesn't cover panels at top,bottom, desktop left or desktop right 
 #
 # TODO: Test for more than 2 monitors?
 ########################################################################
@@ -39,6 +40,13 @@ get_prop() {    # Retrieve var values using xprop
 }
 
 get_screen_dimensions() {
+    # get net workarea, if panels are present
+    netArea=$(xprop -root | grep _NET_WORKAREA)
+    valX=$(echo $netArea | awk '{gsub(",","");print $3}')    # X pos
+    #valY=$(echo $netArea | awk '{gsub(",","");print $4}')    # Y pos
+    valW=$(echo $netArea | awk '{gsub(",","");print $5}')    # usable width
+    #valH=$(echo $netArea | awk '{gsub(",","");print $6}')    # usable height
+    
     desktopW=$(xrandr -q | awk '/Screen/ {print $8}')  # total desktop width
     win1=$(xrandr -q | awk '/ connected/ {if ($3=="primary") print $4}')
     screenW1=${win1%'x'*}
@@ -50,10 +58,11 @@ get_screen_dimensions() {
     
     if [[ ${WINPOS##*' '} -gt $screenW1 ]];then # window is on R monitor
         X_zero=$(( $desktopW - $screenW2 ))
-        screenW=$screenW2
+        panelR=$(( $desktopW - $valW - $valX ))
+        screenW=$(( $desktopW - $screenW1 - $panelR ))
     else
-        X_zero=0                            # window is on L monitor
-        screenW=$screenW1
+        X_zero=$valX                            # window is on L monitor
+        screenW=$(( $screenW1 - $valX ))
     fi
 }
 
