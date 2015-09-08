@@ -11,10 +11,7 @@
 # Honours user-defined Openbox left and right screen margins;
 # Works with decorated and undecorated windows, and windows with no borders.
 #
-# TODO: Test for different screen resolutions with dual monitors
-#
-# TODO: window widths for some terminals too narrow with left snapping
-
+# TODO: Test for more than 2 monitors?
 ########################################################################
 
 USAGE=$(echo -e "\vUSAGE:\tdamo-aerosnap.sh [--help|--left|--right] <margin>"
@@ -42,16 +39,21 @@ get_prop() {    # Retrieve var values using xprop
 }
 
 get_screen_dimensions() {
-    desktopW=$(xrandr -q | grep Screen | awk '{print $8}')  # total desktop width
-    geom=$(xdotool getdisplaygeometry)                      # geometry of current display
-    screenW=${geom%' '*}
+    desktopW=$(xrandr -q | awk '/Screen/ {print $8}')  # total desktop width
+    win1=$(xrandr -q | awk '/ connected/ {if ($3=="primary") print $4}')
+    screenW1=${win1%'x'*}
+    win2=$(xrandr -q | awk '/ connected/ {if ($3!="primary") print $3}')
+    screenW2=${win2%'x'*}
+    
     # X position of active window:
     WINPOS=$(xwininfo -id $WINDOW | grep "Absolute upper-left X")
     
-    if [[ ${WINPOS##*' '} -gt $screenW ]];then
-        X_zero=$(( $desktopW - $screenW ))  # window is on R monitor
+    if [[ ${WINPOS##*' '} -gt $screenW1 ]];then # window is on R monitor
+        X_zero=$(( $desktopW - $screenW2 ))
+        screenW=$screenW2
     else
         X_zero=0                            # window is on L monitor
+        screenW=$screenW1
     fi
 }
 
@@ -160,7 +162,6 @@ snap_left(){
         fi
     else
         XPOS=$(( $OB_margin_left + $X_zero ))  # add OB margin
-        echo "XPOS= $XPOS"
     fi
     
     WIN_WIDTH_L=$((( $screenW / 2 ) - $XPOS - $adjust_X + $X_zero ))
