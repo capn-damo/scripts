@@ -6,6 +6,7 @@
 # Written by <damo> Sept 2015
 #
 # The script emulates aerosnap, using X window properties for getting and storing values.
+#
 # Left and/or right screen margins can be specified;
 # Works with dual monitors - windows will snap to edges of monitor they are on;
 # Honours user-defined Openbox left and right screen margins;
@@ -13,6 +14,7 @@
 # Doesn't cover panels at top,bottom, desktop left or desktop right 
 #
 # TODO: Test for more than 2 monitors?
+#       Have top/bottom splitting?
 ########################################################################
 
 USAGE=$(echo -e "\vUSAGE:\tdamo-aerosnap.sh [--help|--left|--right] <margin>"
@@ -232,7 +234,3 @@ if [[ $err -ne 0 ]]; then
 else
   restore_dimension_geometry
 fi
-
-
-
-
