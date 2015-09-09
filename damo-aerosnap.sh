@@ -33,7 +33,7 @@ set_prop() {    # Add var values to X window properties
   xprop -id "$WINDOW" -f "$propname" 32i -set "$propname" "$val"
 }
 
-get_prop() {    # Retrieve var values using xprop
+get_prop() {    # Retrieve var values from X window properties
   propname="$1"
   varname="$2"
   eval "$varname"=$(xprop -id $WINDOW $propname | awk '{print $3}')
@@ -41,13 +41,12 @@ get_prop() {    # Retrieve var values using xprop
 
 get_screen_dimensions() {
     # get net workarea, if panels are present
-    netArea=$(xprop -root | grep _NET_WORKAREA)
-    valX=$(echo $netArea | awk '{gsub(",","");print $3}')    # X pos
-    #valY=$(echo $netArea | awk '{gsub(",","");print $4}')    # Y pos
-    valW=$(echo $netArea | awk '{gsub(",","");print $5}')    # usable width
-    #valH=$(echo $netArea | awk '{gsub(",","");print $6}')    # usable height
+    # X pos, Y pos, usable width, usable height
+    vals=$(echo $(xprop -root | grep _NET_WORKAREA) | awk '{gsub(",","");print $3,$4,$5,$6}')
+    read valX valY valW valH <<< "$vals"
     
     desktopW=$(xrandr -q | awk '/Screen/ {print $8}')  # total desktop width
+    
     win1=$(xrandr -q | awk '/ connected/ {if ($3=="primary") print $4}')
     screenW1=${win1%'x'*}
     win2=$(xrandr -q | awk '/ connected/ {if ($3!="primary") print $3}')
@@ -69,13 +68,10 @@ get_screen_dimensions() {
 get_WM_FRAME(){     # WM sets window frame and border sizes
                     # Titlebar height depends on fontsize of Active titlebar
     # get borders set by WM
-    winFRAME_EXTENTS=$(xprop -id $WINDOW | grep "_NET_FRAME_EXTENTS" | awk -F "=" '{print $2}')
-    winEXTENTS=${winFRAME_EXTENTS//,/}
-    BORDER_L=$(echo $winEXTENTS | awk '{print $1}')
-    BORDER_R=$(echo $winEXTENTS | awk '{print $2}')
-    BORDER_T=$(echo $winEXTENTS | awk '{print $3}')
-    BORDER_B=$(echo $winEXTENTS | awk '{print $4}')
-    
+    winFRAME_EXTENTS=$(xprop -id $WINDOW | grep "_NET_FRAME_EXTENTS" | awk -F "=" '{gsub(",","");print $2}')
+    winEXTENTS=$(echo "$winFRAME_EXTENTS" | awk '{print $1,$2,$3,$4}')
+    read BORDER_L BORDER_R BORDER_T BORDER_B <<< "$winEXTENTS"
+
     Xoffset=$(( $BORDER_L + $BORDER_R ))    # Need corrections for wmctrl
     Yoffset=$(( $BORDER_T + $BORDER_B ))
 }
@@ -208,12 +204,12 @@ if [[ $1 = "--help" ]] || ! [[ $@ ]];then
 fi
 
 WINDOW=$(xdotool getactivewindow)
-get_screen_dimensions
 load_stored_geometry
     
 err=$?
 if [[ $err -ne 0 ]]; then   
     store_geometry
+    get_screen_dimensions
     get_prop "_OFFSET_X" "adjust_X"
     get_prop "_OFFSET_Y" "adjust_Y"
     get_prop "_OB_BORDER_L" "OB_border_left"
