@@ -13,7 +13,9 @@
 # Works with decorated and undecorated windows, and windows with no borders.
 # Doesn't cover panels at top,bottom, desktop left or desktop right 
 #
-# TODO: Test for more than 2 monitors?
+# TODO: 
+#       Move direct from one snap to the other, without restoring initial_vals
+#       Test for more than 2 monitors?
 #       Have top/bottom splitting?
 ########################################################################
 
@@ -41,17 +43,27 @@ get_prop() {    # Retrieve var values from X window properties
   eval "$varname"=$(xprop -id $WINDOW $propname | awk '{print $3}')
 }
 
+count_monitors(){ #test for more than 2 monitors connected. (this slows things, btw)
+    if [[ $(xrandr -q | grep -c " connected") -gt 2 ]] 2>/dev/null;then
+        echo "Script cannot deal with more than 2 monitors yet" >&2
+        exit
+    fi
+}
+
 get_screen_dimensions() {
     # get net workarea, if panels are present
-    # X pos, Y pos, usable width, usable height
+    ## X pos, Y pos, usable width, usable height
     vals=$(echo $(xprop -root | grep _NET_WORKAREA) | awk '{gsub(",","");print $3,$4,$5,$6}')
     read valX valY valW valH <<< "$vals"
-    
+
     desktopW=$(xrandr -q | awk '/Screen/ {print $8}')  # total desktop width
     
-    win1=$(xrandr -q | awk '/ connected/ {if ($3=="primary") print $4}')
+    # Get vars from awk into current shell
+    set -- $(xrandr -q | awk '/ connected/ {if ($3=="primary") print $4; else print $3}')
+    win1=$1
+    win2=$2
+
     screenW1=${win1%'x'*}
-    win2=$(xrandr -q | awk '/ connected/ {if ($3!="primary") print $3}')
     screenW2=${win2%'x'*}
     
     # X position of active window:
@@ -209,7 +221,8 @@ WINDOW=$(xdotool getactivewindow)
 load_stored_geometry
     
 err=$?
-if [[ $err -ne 0 ]]; then   
+if [[ $err -ne 0 ]]; then
+    count_monitors
     store_geometry
     get_screen_dimensions
     get_prop "_OFFSET_X" "adjust_X"
