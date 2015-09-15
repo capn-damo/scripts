@@ -81,8 +81,7 @@ get_screen_dimensions() {   # get net workarea, if panels are present
 get_WM_FRAME(){         # get borders set by WM
     # WM sets window frame and border sizes
     # Titlebar height depends on fontsize of Active titlebar
-    winFRAME_EXTENTS=$(xprop -id $WINDOW | grep "_NET_FRAME_EXTENTS" | awk -F "=" '{gsub(",","");print $2}')
-    winEXTENTS=$(echo "$winFRAME_EXTENTS" | awk '{print $1,$2,$3,$4}')
+    winEXTENTS=$(xprop -id $WINDOW | awk '/_NET_FRAME_EXTENTS/ {gsub(",","");print $3,$4,$5,$6}')
     read BORDER_L BORDER_R BORDER_T BORDER_B <<< "$winEXTENTS"
 
     Xoffset=$(( $BORDER_L + $BORDER_R ))    # Need corrections for wmctrl
@@ -224,7 +223,7 @@ get_prop "_SNAPPED" "SNAP"      #"Flag" for left/right snapped
                                 #      1: Window is snapped to LEFT
                                 #      2: Window is snapped to RIGHT
 # xprop returns 'such' or 'found.' upon error
-if [[ $SNAP = "such" ]] || [[ $SNAP = "found." ]];then
+if [[ $SNAP = "such" ]] || [[ $SNAP = "found." ]];then # Window hasn't been snapped
     count_monitors
     store_geometry
     set_prop "_SNAPPED" 0
@@ -245,7 +244,7 @@ if [[ $SNAP = "such" ]] || [[ $SNAP = "found." ]];then
         snap_right "$MARGIN"
         set_prop "_SNAPPED" 2
     fi
-elif [[ $SNAP == 1 ]];then  # Window is snapped to LEFT
+elif [[ $SNAP = 1 ]];then  # Window is snapped to LEFT
     load_stored_geometry
     get_screen_dimensions
 
@@ -255,7 +254,7 @@ elif [[ $SNAP == 1 ]];then  # Window is snapped to LEFT
         snap_right "$MARGIN"
         set_prop "_SNAPPED" 2
     fi
-elif [[ $SNAP == 2 ]];then  # Window is snapped to RIGHT
+elif [[ $SNAP = 2 ]];then  # Window is snapped to RIGHT
     load_stored_geometry
     get_screen_dimensions
 
@@ -265,6 +264,6 @@ elif [[ $SNAP == 2 ]];then  # Window is snapped to RIGHT
     elif [[ $1 = "--right" ]];then
         restore_dimension_geometry
     fi
-elif [[ $SNAP == 0 ]];then  # Window has original position/geometry
+elif [[ $SNAP = 0 ]];then  # Window has original position/geometry
     restore_dimension_geometry
 fi
