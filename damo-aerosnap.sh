@@ -10,23 +10,23 @@
 # Left and/or right screen margins can be specified;
 # Works with dual monitors - windows will snap to edges of monitor they are on;
 # Honours user-defined Openbox left and right screen margins;
-# Works with decorated and undecorated windows, and windows with no borders.
-# Doesn't cover panels at top,bottom, desktop left or desktop right 
+# Works with decorated and undecorated windows, and windows with no borders;
+# Doesn't cover panels at top,bottom, desktop left or desktop right.
 #
 # TODO: 
-#       Move direct from one snap to the other, without restoring initial_vals
-#       Test for more than 2 monitors?
-#       Have top/bottom splitting?
+#       Enable top/bottom splitting?
 ########################################################################
 
 USAGE=$(echo -e "\vUSAGE:\tdamo-aerosnap.sh [--help|--left|--right] <margin>"
-        echo -e "\v--help \t\tUsage"
-        echo -e "--left \t\taerosnap to left screen edge"
-        echo -e "--right \taerosnap to right screen edge"
+        echo -e "\v\t--help \t\tUsage"
+        echo -e "\t--left \t\taerosnap to left screen edge"
+        echo -e "\t--right \taerosnap to right screen edge"
         echo
-        echo -e "If no margin is specified, the left and right values set for Openbox in rc.xml are used."
+        echo -e "\tIf no margin is specified, the left and right values set\n\tfor Openbox in rc.xml are used."
         echo 
-        echo -e "The active window will snap to the edge of the screen on which it placed"
+        echo -e "\tThe active window will snap to the edge of the screen on\n\twhich it placed"
+        echo
+        echo -e "\tOriginal window position and dimensions are restored if\n\tthe --left or --right command is repeated,"
 )
 
 ####    FUNCTIONS   ####################################################
@@ -43,16 +43,15 @@ get_prop() {    # Retrieve var values from X window properties
   eval "$varname"=$(xprop -id $WINDOW $propname | awk '{print $3}')
 }
 
-count_monitors(){ #test for more than 2 monitors connected. (this slows things, btw)
+count_monitors(){ #test for more than 2 monitors connected.
     if [[ $(xrandr -q | grep -c " connected") -gt 2 ]] 2>/dev/null;then
         echo "Script cannot deal with more than 2 monitors yet" >&2
         exit
     fi
 }
 
-get_screen_dimensions() {
-    # get net workarea, if panels are present
-    ## X pos, Y pos, usable width, usable height
+get_screen_dimensions() {   # get net workarea, if panels are present
+    # X pos, Y pos, usable width, usable height
     vals=$(echo $(xprop -root | grep _NET_WORKAREA) | awk '{gsub(",","");print $3,$4,$5,$6}')
     read valX valY valW valH <<< "$vals"
 
@@ -79,9 +78,9 @@ get_screen_dimensions() {
     fi
 }
 
-get_WM_FRAME(){     # WM sets window frame and border sizes
-                    # Titlebar height depends on fontsize of Active titlebar
-    # get borders set by WM
+get_WM_FRAME(){         # get borders set by WM
+    # WM sets window frame and border sizes
+    # Titlebar height depends on fontsize of Active titlebar
     winFRAME_EXTENTS=$(xprop -id $WINDOW | grep "_NET_FRAME_EXTENTS" | awk -F "=" '{gsub(",","");print $2}')
     winEXTENTS=$(echo "$winFRAME_EXTENTS" | awk '{print $1,$2,$3,$4}')
     read BORDER_L BORDER_R BORDER_T BORDER_B <<< "$winEXTENTS"
@@ -132,11 +131,7 @@ store_geometry() {  # store values in X window properties
 }
 
 load_stored_geometry() {
-    local tmp
-    get_prop "_INITIAL_DIMENSION_X" "tmp"
-    # xprop doesn't return an error code and has two different possible errors
-    [[ $tmp == "such" || $tmp == "found." ]] && return 1
-    initial_x=$tmp
+    get_prop "_INITIAL_DIMENSION_X" "initial_x"
     get_prop "_INITIAL_DIMENSION_Y" "initial_y"
     get_prop "_INITIAL_DIMENSION_WIDTH" "initial_width"
     get_prop "_INITIAL_DIMENSION_HEIGHT" "initial_height"
@@ -148,7 +143,6 @@ load_stored_geometry() {
     get_prop "_OB_BORDER_B" "OB_border_bottom"
     get_prop "_OB_MARGIN_L" "OB_margin_left"
     get_prop "_OB_MARGIN_R" "OB_margin_right"
-    
 }
 
 restore_dimension_geometry() {
@@ -158,6 +152,7 @@ restore_dimension_geometry() {
     wmctrl -r :ACTIVE: -b remove,maximized_vert && \
     wmctrl -r :ACTIVE: -e 0,"$Xpos","$Ypos","$initial_width","$initial_height"
 
+    xprop -id $WINDOW -remove _SNAPPED
     xprop -id $WINDOW -remove _INITIAL_DIMENSION_X  # Clear X window properties
     xprop -id $WINDOW -remove _INITIAL_DIMENSION_Y
     xprop -id $WINDOW -remove _INITIAL_DIMENSION_WIDTH
@@ -216,14 +211,23 @@ if [[ $1 = "--help" ]] || ! [[ $@ ]];then
     echo
     exit
 fi
-
+if [[ $2 ]];then
+    MARGIN="$2"
+else
+    MARGIN=0
+fi
 WINDOW=$(xdotool getactivewindow)
-load_stored_geometry
-    
-err=$?
-if [[ $err -ne 0 ]]; then
+
+#load_stored_geometry
+get_prop "_SNAPPED" "SNAP"      #"Flag" for left/right snapped
+                                # SNAP=0: Original geom
+                                #      1: Window is snapped to LEFT
+                                #      2: Window is snapped to RIGHT
+# xprop returns 'such' or 'found.' upon error
+if [[ $SNAP = "such" ]] || [[ $SNAP = "found." ]];then
     count_monitors
     store_geometry
+    set_prop "_SNAPPED" 0
     get_screen_dimensions
     get_prop "_OFFSET_X" "adjust_X"
     get_prop "_OFFSET_Y" "adjust_Y"
@@ -234,16 +238,33 @@ if [[ $err -ne 0 ]]; then
     get_prop "_OB_MARGIN_L" "OB_margin_left"
     get_prop "_OB_MARGIN_R" "OB_margin_right"
     
-    if [[ $2 ]];then
-        MARGIN="$2"
-    else
-        MARGIN=0
-    fi
     if [[ $1 = "--left" ]];then
         snap_left "$MARGIN"
+        set_prop "_SNAPPED" 1
     elif [[ $1 = "--right" ]];then
         snap_right "$MARGIN"
+        set_prop "_SNAPPED" 2
     fi
-else
-  restore_dimension_geometry
+elif [[ $SNAP == 1 ]];then  # Window is snapped to LEFT
+    load_stored_geometry
+    get_screen_dimensions
+
+    if [[ $1 = "--left" ]];then
+        restore_dimension_geometry
+    elif [[ $1 = "--right" ]];then
+        snap_right "$MARGIN"
+        set_prop "_SNAPPED" 2
+    fi
+elif [[ $SNAP == 2 ]];then  # Window is snapped to RIGHT
+    load_stored_geometry
+    get_screen_dimensions
+
+    if [[ $1 = "--left" ]];then
+        snap_left "$MARGIN"
+        set_prop "_SNAPPED" 1
+    elif [[ $1 = "--right" ]];then
+        restore_dimension_geometry
+    fi
+elif [[ $SNAP == 0 ]];then  # Window has original position/geometry
+    restore_dimension_geometry
 fi
