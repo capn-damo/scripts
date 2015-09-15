@@ -219,14 +219,12 @@ WINDOW=$(xdotool getactivewindow)
 
 #load_stored_geometry
 get_prop "_SNAPPED" "SNAP"      #"Flag" for left/right snapped
-                                # SNAP=0: Original geom
                                 #      1: Window is snapped to LEFT
                                 #      2: Window is snapped to RIGHT
 # xprop returns 'such' or 'found.' upon error
 if [[ $SNAP = "such" ]] || [[ $SNAP = "found." ]];then # Window hasn't been snapped
     count_monitors
     store_geometry
-    set_prop "_SNAPPED" 0
     get_screen_dimensions
     get_prop "_OFFSET_X" "adjust_X"
     get_prop "_OFFSET_Y" "adjust_Y"
@@ -264,6 +262,4 @@ elif [[ $SNAP = 2 ]];then  # Window is snapped to RIGHT
     elif [[ $1 = "--right" ]];then
         restore_dimension_geometry
     fi
-elif [[ $SNAP = 0 ]];then  # Window has original position/geometry
-    restore_dimension_geometry
 fi
