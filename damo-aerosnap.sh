@@ -189,7 +189,6 @@ restore_dimension_geometry() {
 }
 
 snap(){
-    echo "Param= $1"
     case "$1" in
         "--left"    )   snap_left "$MARGIN"
                         ;;
