@@ -33,7 +33,7 @@ if [[ -z $@ ]];then
         )
     RET=$?
 else
-    case $@ in
+    case $1 in
         -h|--help)  echo -e "$USAGE"
                     exit 0;;
         --logout)   openbox --exit;;
