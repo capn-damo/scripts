@@ -1,0 +1,61 @@
+#!/bin/bash
+##
+## Logout/Exit dialog, using 'yad`
+## Written for BunsenLabs Linux by damo <damo@bunsenlabs.org> October 2015
+##
+## TODO?    Confirm action
+##
+## Bug?: Accelerator keys may not display, depending on the gtk theme
+##
+########################################################################
+
+USAGE="\n\tbl-exityad [OPTION]\n\n\
+\tWith no arg then run gui logout dialog\n\n\
+\t-h|--help\tThis USAGE help\n\
+\t--logout\tOpenbox logout\n\
+\t--suspend\tSystem suspend\n\
+\t--reboot\tSystem restart\n\
+\t--poweroff\tShutdown system\n"
+
+function db-send(){
+    ACTION="$1"
+
+    dbus_send="dbus-send --print-reply --system --dest=org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager.$ACTION boolean:true"
+
+    eval exec $dbus_send
+}
+
+if [[ -z $@ ]];then
+    DIALOG=$(yad --undecorated --center --on-top\
+        --window-icon="gtk-quit"\
+        --text="Logout $USER?\tChoose an option..."\
+        --text-align=center\
+        --button="gtk-cancel:1" \
+        --button="_Logout":2 \
+        --button="_Suspend":3 \
+        --button="_Reboot":4\
+        --button="_Power Off":5 \
+        )
+    RETURN=$?
+else
+    case $1 in
+        -h|--help)  echo -e "$USAGE"
+                    exit 0;;
+        --logout)   openbox --exit;;
+        --suspend)  db-send "Suspend";;
+        --reboot)   db-send "Reboot" ;;
+        --poweroff) db-send "PowerOff";;
+        *)          echo -e "\nUse a valid command arg..."
+                    echo -e "$USAGE"
+                    exit 1;;
+    esac
+fi
+
+case $RETURN in
+    1) exit 0;;
+    2) openbox --exit;;
+    3) db-send "Suspend";;
+    4) db-send "Reboot" ;;
+    5) db-send "PowerOff";;
+    *) exit 1;;
+esac
