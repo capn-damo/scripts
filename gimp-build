@@ -1,0 +1,152 @@
+#!/bin/bash
+##
+#   Script by damo <damo@bunsenlabs.org>, March 2014, adapted from one described here:
+#   <http://www.gimp.org/source/howtos/gimp-git-build.html>
+#
+#   Updated for BunsenLabs, October 2015
+#
+#   Script to compile and install the latest GIMP-2.9 in the $USER's $HOME
+#   All libraries are kept here, so there are no conflicts with versions
+#   already installed.
+#
+#########################################################################
+#
+#   NB  Development tools and dependencies will be installed by the script if needed
+#
+########################################################################
+#
+#   [QUOTE from <http://www.gimp.org/source/howtos/gimp-git-build.html>]
+#     1.I use autoconf's config.site feature instead of setting up
+#       environment variables manually
+#     2.I install in my home directory
+#       Making use of config.site nullifies the need to manually manage
+#       environment variables, and installing in the home directory makes it
+#       easy to tinker with an installation since you don't need to
+#       be root. So, put this in $GIMP_DIR/share/config.site where $GIMP_DIR is in
+#       your home directory eg GIMP_DIR=$HOME/.gimp-dev
+#
+#   THE SCRIPT DOES:
+#   1)  export GIMP_DIR="$HOME/.gimp-dev"
+#   2)  mkdir .gimp-dev
+#       mkdir .gimp-dev/share
+#   3)  creates .gimp-dev/share/config.site
+#
+#       and adds the following:
+#
+#       export PATH="$GIMP_DIR/bin:$PATH"
+#       export PKG_CONFIG_PATH="$GIMP_DIR/lib/pkgconfig:$PKG_CONFIG_PATH"
+#       export LD_LIBRARY_PATH="$GIMP_DIR/lib:$LD_LIBRARY_PATH"
+#       export ACLOCAL_FLAGS="-I $GIMP_DIR/share/aclocal $ACLOCAL_FLAGS"
+#
+#       Now autogen will use the paths in this file, so they no longer
+#       need to be managed manually
+#
+#   4)  Build babl,gegl,gimp the first time with the following script
+#
+#########################################################################
+
+## Most recent required dependencies:
+DEPS="libgtk2.0-bin json-glib-tools libjson-glib-dev libgexiv2-dev"
+
+## Set up pre-build environment for GIMP-dev (set up env variables)
+# Needs ~/.gimp-dev to be present
+GIMP_DIR="$HOME/.gimp-dev"
+echo "Checking if GIMP development directory is present..."
+if [[ ! -d $GIMP_DIR ]]; then
+    mkdir $GIMP_DIR
+    echo "Created $GIMP_DIR"
+else
+    echo -e "$GIMP_DIR found\n"
+fi
+echo "Checking for config file to be used by autogen.."
+if [[  ! -f "$GIMP_DIR/share/config.site" ]]; then
+    echo "Creating config file..."
+    if [[ ! -d "$GIMP_DIR/share" ]];then
+        mkdir $GIMP_DIR/share
+    fi
+    touch $GIMP_DIR/share/config.site
+    echo 'export PATH="$GIMP_DIR/bin:$PATH"' > $GIMP_DIR/share/config.site
+    echo 'export PKG_CONFIG_PATH="$GIMP_DIR/lib/pkgconfig:$PKG_CONFIG_PATH"' >> $GIMP_DIR/share/config.site
+    echo 'export LD_LIBRARY_PATH="$GIMP_DIR/lib:$LD_LIBRARY_PATH"' >> $GIMP_DIR/share/config.site
+    echo 'export ACLOCAL_FLAGS="-I $GIMP_DIR/share/aclocal $ACLOCAL_FLAGS"' >> $GIMP_DIR/share/config.site
+    echo "Created $GIMP_DIR/share/config.site"
+else
+    echo -e "$GIMP_DIR/share/config.site found\n"
+fi
+
+# Check if there is a previous installation, and ask what to do
+if [ -d "$GIMP_DIR/babl" ] || [ -d "$GIMP_DIR/gegl" ] || [ -d "$GIMP_DIR/gimp" ]; then
+    echo -e "A previous installation has been found\n\
+    \tWe can attempt to continue by deleting babl/gegl/gimp directories\n"
+    read -p "Continue? (y/N) " yn
+    case $yn in
+        N|n  )  echo -e "Exiting installation...\n"
+                exit
+                ;;
+        Y|y   ) rm -rf $GIMP_DIR/babl
+                rm -rf $GIMP_DIR/gegl
+                rm -rf $GIMP_DIR/gimp
+                ;;
+         *    ) echo -e "Exiting installation...\n"
+                exit
+                ;;
+    esac
+fi
+
+# set up environment variables
+export PATH=$GIMP_DIR/bin:$PATH
+export PKG_CONFIG_PATH=$GIMP_DIR/lib/pkgconfig:$GIMP_DIR/share/pkgconfig
+
+set -x # Print commands on the go
+set -e # Stop at first non-zero return code
+
+# Get dependencies (hopefully :) )
+sudo apt-get update
+sudo apt-get install --no-install-recommends git
+sudo apt-get install --no-install-recommends $DEPS
+sudo apt-get build-dep -y babl
+sudo apt-get build-dep -y gegl
+sudo apt-get build-dep -y gimp
+
+# Find number of cpu cores, to multi-thread the make
+MAKEOPTS="-j$(($(grep '^processor' /proc/cpuinfo | wc -l)))"
+
+# $GIMP_DIR env var points to "$HOME/.gimp-dev"
+cd $GIMP_DIR
+
+# Build babl
+git clone git://git.gnome.org/babl
+cd babl
+./autogen.sh --prefix=$GIMP_DIR
+make
+make install
+
+cd $GIMP_DIR
+# Build gegl
+git clone git://git.gnome.org/gegl
+cd gegl
+./autogen.sh --prefix=$GIMP_DIR
+make
+make install
+
+cd $GIMP_DIR
+# Build GIMP
+git clone git://git.gnome.org/gimp
+cd gimp
+./autogen.sh --prefix=$GIMP_DIR
+make
+make install
+
+###------------------------------------------------------
+## If you add a menu item "INSTALL GIMP-dev", then uncomment below
+## to update menu.xml:
+
+#f="$HOME/.config/openbox/menu.xml"
+
+#sed -i 's|INSTALL GIMP|GIMP-2.9|g' "$f"
+#sed -i 's|x-terminal-emulator -e gimp-build|~/.gimp-dev/bin/gimp-2.9|g' "$f"
+
+#openbox --reconfigure
+
+exit
+

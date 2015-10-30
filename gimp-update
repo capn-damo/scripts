@@ -1,0 +1,95 @@
+#!/bin/bash
+##
+#   Script by damo <damo@bunsenlabs.org> March 2014
+#   Updated October 2015
+#
+#   Based on a script from
+#   <http://www.gimp.org/source/howtos/gimp-git-build.html>
+#
+#   To get updated with the latest changes from the constantly moving
+#   code base run this script regularly
+#
+########################################################################
+# Note that this works without requiring any environment variables
+# to be set since configure will source config.site. And because
+# autogen.sh passes --enable-maintainer-mode to configure, it will also
+# work when Makefile.am's or configure.ac are changed.
+#
+# If there are occasions where things break, just run:
+#
+#       git clean -xdf
+#
+# which removes all non-version-controlled files so that you can start
+# over from autogen.sh
+########################################################################
+
+# Check required directories are present
+GIMP_DIR="$HOME/.gimp-dev"
+
+echo -e "\nChecking if GIMP development directory is present..."
+if [[ ! -d "$GIMP_DIR" ]]; then
+    echo "No GIMP development directory found!"
+    echo "Build GIMP first, using gimp-build"
+    exit
+else
+    echo "$GIMP_DIR found"
+fi
+echo
+echo -e "\nChecking for config file to be used by autogen..."
+if [[ -f "$GIMP_DIR/share/config.site" ]];then
+        echo "$GIMP_DIR/share/config.site found"
+else
+    if [[ -d "$GIMP_DIR/share" ]]; then
+        echo "Creating config file..."
+        echo
+        touch $GIMP_DIR/share/config.site
+        echo 'export PATH="$GIMP_DIR/bin:$PATH"' > $GIMP_DIR/share/config.site
+        echo 'export PKG_CONFIG_PATH="$GIMP_DIR/lib/pkgconfig:$PKG_CONFIG_PATH"' >> $GIMP_DIR/share/config.site
+        echo 'export LD_LIBRARY_PATH="$GIMP_DIR/lib:$LD_LIBRARY_PATH"' >> $GIMP_DIR/share/config.site
+        echo 'export ACLOCAL_FLAGS="-I $GIMP_DIR/share/aclocal $ACLOCAL_FLAGS"' >> $GIMP_DIR/share/config.site
+        echo "Created $GIMP_DIR/share/config.site"
+    else
+        echo -e "No GIMP development share directory found!\n\
+        Build GIMP first, using gimp-build\n"
+        exit
+    fi
+fi
+
+echo
+
+# update babl
+if [[ -d "$GIMP_DIR/babl" ]]; then
+    cd $GIMP_DIR/babl
+    git pull --rebase
+    make
+    make install
+else
+    echo -e "No GIMP development babl directory found!\n\
+    Build GIMP first, using gimp-build\n"
+    exit
+fi
+# update gegl
+if [[ -d "$GIMP_DIR/gegl" ]]; then
+    cd $GIMP_DIR/gegl
+    git pull --rebase
+    make
+    make install
+else
+    echo -e "No GIMP development gegl directory found!\n\
+    Build GIMP first, using gimp-build\n"
+    exit
+fi
+
+# update gimp
+if [[ -d "$GIMP_DIR/gimp" ]]; then
+    cd $GIMP_DIR/gimp
+    git pull --rebase
+    make
+    make install
+else
+    echo -e "No GIMP development gimp directory found!\n\
+    Build GIMP first, using gimp-build\n"
+    exit
+fi
+
+exit
