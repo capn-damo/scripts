@@ -88,7 +88,11 @@ function getStart(){    #   Get initial Conky position
         posY_1=${info1[Absolute upper-left Y]}
     else
         echo "Selection is not a conky"
-        $DIALOG --button="OK:0" --text="Selection is not a conky\n\nChoose again"
+        $DIALOG --button="OK:0" --button="Exit:1" --text="Selection is not a conky\n\nChoose again?"
+        if (( $? == 1 ));then
+            echo "  Cancelled: exiting..."
+            exit 0
+        fi
         getStart
     fi
 }
@@ -137,6 +141,24 @@ function getOffset(){   # parse_conkyfile should already have been run
             ;;
     esac
 }
+
+## check necessary tools are installed
+required_commands=(xdotool xwininfo xprop yad) # array, space-separated words
+
+error_exit() {
+    echo "$0 error: $1" >&2
+    exit 1
+}
+
+missing_commands=()
+for i in "${required_commands[@]}"
+do
+    hash $i || missing_commands+=(" $i")
+done
+[[ ${missing_commands[0]} ]] && error_exit "This script requires the following commands: ${missing_commands[*]}
+Please install the packages containing the missing commands
+and rerun the script."
+
 
 $DIALOG --text="Click 'Select Conky' to pick a conky.\n\nThen use the 'xdotool' cursor on the chosen conky\nto record its position." \
      --button="Select Conky:0" --button="gtk-cancel:1"
