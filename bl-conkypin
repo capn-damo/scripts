@@ -79,7 +79,19 @@ function getStart(){    #   Get initial Conky position
 
     # command suggested by @johnraff....
     #CMD=$(xprop -id $ID  WM_COMMAND | awk -F '", "' '{cmd=$1;sub(/^.*{ "/,"",cmd);for (i=1;i<=NF;i++)if($i=="-c"){i++;sub(/\" }$/,"",$i);gsub(/\\\"/,"\"",$i);print cmd,$i;exit}}')
-    CMD=$(xprop -id $ID  WM_COMMAND | awk -F '", "' '{cmd=$1;sub(/^.*{ "/,"",cmd);for (i=1;i<=NF;i++)if($i ~ /-([a-zA-Z])?c/){i++;sub(/\" }$/,"",$i);gsub(/\\\"/,"\"",$i);print cmd,$i;exit}}')
+   CMD=$(xprop -id $ID  WM_COMMAND | awk -F '", "' '{
+       cmd=$1
+       sub(/^.*{ "/,"",cmd)
+       for (i=1;i<=NF;i++)
+        if($i ~ /-([a-zA-Z])?c/){
+            i++
+            sub(/\" }$/,"",$i)
+            gsub(/\\\"/,"\"",$i)
+            print cmd,$i
+            exit
+            }
+       }'
+       )
 
     if [[ ${CMD%% *} = conky ]];then
         echo "Found a conky"
@@ -143,7 +155,7 @@ function getOffset(){   # parse_conkyfile should already have been run
 }
 
 ## check necessary tools are installed
-required_commands=(xdotool xwininfo xprop yad) # array, space-separated words
+required_commands=(xwininfo xprop yad) # array, space-separated words
 
 error_exit() {
     echo "$0 error: $1" >&2
@@ -160,7 +172,7 @@ Please install the packages containing the missing commands
 and rerun the script."
 
 
-$DIALOG --text="Click 'Select Conky' to pick a conky.\n\nThen use the 'xdotool' cursor on the chosen conky\nto record its position." \
+$DIALOG --text="Click 'Select Conky' to pick a conky.\n\nThen use the 'xwininfo' cursor on the chosen conky\nto record its position." \
      --button="Select Conky:0" --button="gtk-cancel:1"
 
 if (( $? == 0 ));then
