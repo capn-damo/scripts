@@ -1,0 +1,52 @@
+#!/bin/bash
+##
+# Script written to colorize the "Paper" icon theme, by damo <damo@bunsenlabs.org>
+#
+# USAGE:    icons-colorize <icons dirpath> <new icons dirpath>
+#
+# Requires Imagemagick & IM scripts: color2gray, tintilize
+# Scripts from Fred's Imagemagick <http://www.fmwconcepts.com/imagemagick/index.php>
+#
+#                  hsl(hue angle;saturation;lightness)
+# tintilize.sh -m "hsl(220,70%,40%)" infile outfile.........blueish
+# tintilize.sh -m "hsl(350,100%,40%)" infile outfile........reddish
+# tintilize.sh -m "hsl(90,60%,40%)" infile outfile..........greenish
+
+# Enter values for hue(0-360),saturation(0-100),lightness(0-100),contrast(-100 to +100)
+h=220
+s=60
+l=40
+c=-50
+
+ICOPATH="$1"
+ICONEW="$2"
+ICO1="folder*.png"
+ICO2="inode-directory.png"
+ICO3="user-home.png"
+ICO4="text-x*.png"
+ICO5="media-*.png"
+ICO6="package-x*.png"
+
+if [[ $# -ne 2 ]] &>/dev/null;then
+    echo -e "Script needs 2 arguments:\n\n    icons-colorize <icons dirpath> <new icons dirpath>"
+    exit
+fi
+if [[ -d $ICOPATH ]] &>/dev/null;then
+    cp -r "$ICOPATH" "$ICONEW"
+else
+    echo "Icons directory not found: start again!"
+    exit 1
+fi
+
+for f in "$ICONEW"/*/*/*;do
+    ico=$(basename $f)
+    case "$ico" in
+        $ICO1|$ICO2|$ICO3 ) color2gray.sh -f add "$f" "$f"
+                            tintilize.sh -m "hsl($h,$s%,$l%)" "$f" "$f"
+                            ;;
+        $ICO4|$ICO6       ) tintilize.sh -c -"$c" "$f" "$f"   # contrast: -100 - +100
+                            ;;
+        $ICO5             ) tintilize.sh -c -30 "$f" "$f"
+                            ;;
+    esac
+done
