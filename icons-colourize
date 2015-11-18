@@ -11,6 +11,8 @@
 # tintilize.sh -m "hsl(220,70%,40%)" infile outfile.........blueish
 # tintilize.sh -m "hsl(350,100%,40%)" infile outfile........reddish
 # tintilize.sh -m "hsl(90,60%,40%)" infile outfile..........greenish
+#
+# NB! After running the script, change the theme name at the top of index.theme
 
 # Enter values for hue(0-360),saturation(0-100),lightness(0-100),contrast(-100 to +100)
 h=220
