@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Script to enable different wallpapers on each workspace and monitor.
+# Script to enable different wallpapers on each workspace and monitor with Openbox
 # Written by damo <damo@bunsenlabs.org> November 2015
 #
 # When first run, the script writes a configuration file template. The user can
@@ -14,21 +14,90 @@
 WALLS_FILE="$HOME/.config/wallpapers.cfg"
 FEH_CMD="feh --bg-fill" # edit this, or wallpapers.cfg, to use a different feh command
 
-TXT=$(echo -e "# Add filepaths to the images to be set as backgrounds on each workspace."
-    echo -e "# You can have an image set for each monitor."
-    echo -e "#\n# Commands should be in the form:\n#"
-    echo -e "#  $FEH_CMD 'path/to/image1(monitor 1)' 'path/to/image2(monitor 2)' etc\n#"
-    echo -e "############################################################################"
-    )
+TXT="# Add filepaths to the images to be set as backgrounds on each workspace.
+# You can have an image set for each monitor.
+# Commands should be in the form:
+#  $FEH_CMD 'path/to/image1(monitor 1)' 'path/to/image2(monitor 2)' etc
+#
+# From man feh:
+# For the --bg-center and --bg-max options, you can use the --geometry option to
+# specify an offset from one side of the screen instead of centering the image.
+# Positive values will offset from the left/top side, negative values from the
+# bottom/right.  +0 and -0 are both valid and distinct values.
+#
+# Note that all options except --bg-tile support Xinerama.  For instance,
+# if you have multiple screens connected and use e.g.  --bg-center, feh will
+# center or appropriately offset the image on each screen.  You may even specify 
+# more than one file, in that case, the first file is set on screen 0, the second
+# on screen 1, and so on.
+#
+# Use --no-xinerama to treat the whole X display as one screen when setting wallpapers.
+#     --bg-center
+#         Center the file on the background.  If it is too small, it will be
+#         surrounded by a black border
+#     --bg-fill
+#         Like --bg-scale, but preserves aspect ratio by zooming the image until
+#         it fits.  Either a horizontal or a vertical part of the image will be cut off
+#     --bg-max
+#         Like --bg-fill, but scale the image to the maximum size that fits the
+#         screen with black borders on one side.
+#     --bg-scale
+#         Fit the file into the background without repeating it, cutting off stuff
+#         or using borders.  But the aspect ratio is not preserved either
+#     --bg-tile
+#         Tile (repeat) the image in case it is too small for the screen
+#
+###########################################################################"
+
+USAGE="USAGE:
+
+  wallpapersd &   Runs the 'daemon' to set per-workspace backgrounds.
+                  First run will open wallpapers.cfg, which has instructions and feh settings.
+  
+  --config        Open wallpapers.cfg for editing
+  
+  -h,--help       This help
+"
 
 if ! hash feh;then
     echo "feh is required to set the backgrounds. Install the feh package then re-run the script"
     exit 1
 fi
 
+case "$1" in
+    -h|--help ) echo -e "\n$USAGE"
+                exit
+                ;;
+    --config  ) if [[ -f $WALLS_FILE ]] &>/dev/null;then
+                    echo -e "\n  Open wallpapers.cfg for editing?\n  (wallpapersd needs to be restarted afterwards) y|N"
+                    read -srn1 RET
+                    case $RET in
+                        n|N ) exit;;
+                        y|Y ) xdg-open "$WALLS_FILE" &  # open cfg file for editing
+                              killall wallpapersd
+                              exit
+                              ;;
+                        *   ) exit
+                              ;;
+                    esac
+                else
+                    echo -e "  No ~/.config/wallpapers.cfg found\n  Run wallpapersd first? Y|n?"
+                    read -srn1 ANS
+                    case $ANS in
+                        n|N ) exit
+                              ;;
+                        *   ) wallpapersd 2>/dev/null & # run app to generate cfg template
+                              xdg-open "$WALLS_FILE" &  # open cfg file for editing
+                              ;;
+                    esac
+                fi
+                ;;
+esac
+
 if [[ ! -f $WALLS_FILE ]];then
     echo -e "$TXT\n" > "$WALLS_FILE"
-    NUM_DESKTOPS=$(xprop -root _NET_NUMBER_OF_DESKTOPS | tail -c -2)
+    NUM_DESKTOPS=$(xprop -root _NET_NUMBER_OF_DESKTOPS)
+    NUM_DESKTOPS=${NUM_DESKTOPS:(-1)}
     for (( i=0; i < $NUM_DESKTOPS; i++ ));do
         echo "[DESKTOP_$i] $FEH_CMD " >> "$WALLS_FILE"
     done
@@ -36,14 +105,14 @@ if [[ ! -f $WALLS_FILE ]];then
     exit
 else
     xprop -root -spy _NET_CURRENT_DESKTOP | (   # <-- this is the watching process
-    while read -r;do
-        CURR_DESKTOP=${REPLY:${#REPLY}-1:1}
-        while read DTOP CMD;do
-            VAL="[DESKTOP_$CURR_DESKTOP]"
-            if [[ "$DTOP" = "$VAL" ]];then
-                eval $CMD
-            fi
-        done < "$WALLS_FILE"
-    done
-    )
+        while read -r;do
+            CURR_DESKTOP=${REPLY:(-1)}
+            while read DTOP CMD;do
+                VAL="[DESKTOP_$CURR_DESKTOP]"
+                if [[ "$DTOP" = "$VAL" ]];then
+                    eval $CMD
+                fi
+            done < "$WALLS_FILE"
+        done
+        )
 fi
