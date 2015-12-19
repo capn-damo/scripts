@@ -5,11 +5,12 @@ SOUNDEDITOR="/usr/bin/mhwaveedit"
 FTYPE="mp3"
 
 # get pulseaudio soundcard output name
-SRC=$(pacmd list-sources | awk '/name:.+\.monitor/' | awk '$0=$2' FS='<' RS='>')
+SRC=$(pacmd list-sources | grep analog | awk '/name:.+\.monitor/' | awk '$0=$2' FS='<' RS='>')
 
 while : ;do
     RECORD=$(yad --file --save \
     --title="Record stream" --height=600 --width=600 --center \
+    --window-icon=distributor-logo-bunsenlabs \
     --button=Save:0 --button=gtk-cancel:1 \
     )
     RET=$?
@@ -19,6 +20,7 @@ while : ;do
             if [ -f "$RECORDING" ];then
                 DLG=$(yad --form --text="File exists. Overwrite?" \
                 --title="Record stream" --center --undecorated \
+                --window-icon=distributor-logo-bunsenlabs \
                 )
                 if [[ $? = 0 ]];then
                     rm "$RECORDING"    # avconv won't auto-overwrite, so delete existing file
@@ -31,6 +33,7 @@ while : ;do
             fi
         else    # loop if no filename entered
             DLG=$(yad --form --text="Enter a filename" \
+            --window-icon=distributor-logo-bunsenlabs \
             --title="Record stream" --center --undecorated --button=OK:0 \
             --width=300 \
             )
@@ -42,11 +45,12 @@ while : ;do
 done
 
 REC=$(yad --form --text="Start recording $RECORDING?" --title="Record stream" \
+    --window-icon=distributor-logo-bunsenlabs \
     --center --button=OK:0 --button:Exit:1 \
     --width=300 \
     )
 if [[ $? = 0 ]];then
-    avconv -f pulse -i $SRC "$RECORDING" &
+    ffmpeg -f pulse -i $SRC "$RECORDING" &
     
     # progress bar
     while :; do
@@ -55,10 +59,11 @@ if [[ $? = 0 ]];then
     done | \
     DLG=$(yad --progress --pulsate --text="Stop recording?" \
     --title="Record stream" --button=Stop:0 --center \
+    --window-icon=distributor-logo-bunsenlabs \
     --width=300 \
     )
     
-    killall avconv
+    killall ffmpeg
 else
     exit 0
 fi
