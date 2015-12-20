@@ -5,14 +5,15 @@
 ## written by <damo> June 2015
 
 CMD="youtube-dl -o "
-FTYPE="mp4"
+FTYPES="mp4!avi!mov!wmv!flv!3gp!mkv"
 
 progbar(){                                      # progress bar
     while :; do
         echo ""
         sleep 1s
     done | DLG=$(yad --progress --pulsate --auto-kill \
-            --center --undecorated --title="Progress..." --width=200 \
+            --window-icon=distributor-logo-bunsenlabs \
+            --center --undecorated --text="Youtube downloader: Progress..." \
             )
     if [[ $? = 0 ]];then
         YKILL=$(pgrep -a youtube-dl | awk '{print $1}')
@@ -39,16 +40,37 @@ killprog(){                                     # kill progress dialog
 }
 
 while :; do
-    ENTRY=$(yad --form --field="Enter Filename":SFL --field="Enter youtube url" --center)
+    ENTRY=$(yad --form --window-icon=distributor-logo-bunsenlabs --center \
+        --title="Youtube downloader" \
+        --field="Enter Filename":SFL \
+        --field="Enter youtube url" \
+        --field="Filetype:CB" \
+        "" "" "$FTYPES" \
+        )
     RET=$?
-    SAVE=$(echo $ENTRY | awk -F'|' '{print $1}' )
-    URL=$(echo $ENTRY | awk -F'|' '{print $2}' | awk -F'=' '{print $NF}') # only need last bit of url
-    
-    if [[ $RET = 1 ]];then
+
+    OIFS=$IFS # save Internal Field Separator
+    IFS="|" # separator is "|" in returned choices
+    i=0
+    retChoice=()
+
+for ret in $ENTRY;do 
+    retChoice[$i]="$ret"
+    i=$(($i+1))
+done
+
+    IFS=$OIFS # reset IFS back to default
+
+    SAVE=${retChoice[0]}
+    URL=${retChoice[1]}
+    URL=${URL##*'='}
+    FTYPE=${retChoice[2]}
+
+    if (( $RET == 1 ));then
         exit
     fi
-    if [[ -z $SAVE ]] || [[ -z $URL ]];then
-        yad --form --text="Complete both fields" --center
+    if [[ -z $SAVE ]] || [[ -z $URL ]] || [[ -z $FTYPES ]];then
+        yad --form --text="Complete both fields" --center --window-icon=distributor-logo-bunsenlabs
     else
         break
     fi
@@ -56,13 +78,14 @@ done
 
 RECORDING="$SAVE.$FTYPE" # add file extension
 
-if [[ $RET = 0 ]];then
+if (( $RET == 0 ));then
     while :; do
-        if [ -f "$RECORDING" ];then
-            DLG=$(yad --form --text="File exists. Overwrite?" \
-            --title="Record youtube" --center --undecorated \
-            )
-            if [[ $? = 1 ]];then
+        if [[ -f $RECORDING ]];then
+            DLG=$(yad --form --window-icon=distributor-logo-bunsenlabs \
+                --text="File exists. Overwrite?" \
+                --title="Youtube downloader" --center --undecorated \
+                )
+            if (( $? == 1 ));then
                 echo "Cancelled overwrite..."
                 exit
             else
