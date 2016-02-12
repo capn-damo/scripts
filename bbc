@@ -1,0 +1,55 @@
+#!/bin/bash
+##
+
+USAGE="bbc [station number]|[kill]
+BBC RADIO STATIONS\n
+1:\tRadio 1
+1x:\tRadio 1 extra
+2:\tRadio 2
+3:\tRadio 3
+4:\tRadio 4FM
+4lw:\tRadio 4LW
+5:\tRadio 5Live
+5x:\tRadio 5Live Sports Extra
+6:\tRadio 6\n
+kill:\tClose stream"
+
+BBCURL="http://a.files.bbci.co.uk/media/live/manifesto/audio/simulcast/hls/uk/sbr_high/ak/"
+EXT=".m3u8"
+
+INPUT="$1"
+
+if (( $# == 0 )) || [[ $INPUT = --help ]];then
+    echo -e "$USAGE"
+else
+    INDEX="$INPUT"
+fi
+
+case "$INDEX" in
+    1   )   STATION="bbc_radio_one";;
+    1x  )   STATION="bbc_1xtra";;
+    2   )   STATION="bbc_radio_two";;
+    3   )   STATION="bbc_radio_three";;
+    4   )   STATION="bbc_radio_fourfm";;
+    4lw )   STATION="bbc_radio_fourlw";;
+    4x  )   STATION="bbc_radio_four_extra";;
+    5   )   STATION="bbc_radio_five_live";;
+    5x  )   STATION="bbc_radio_five_live_sports_extra";;
+    6   )   STATION="bbc_6music";;
+    kill)   killall ffplay
+            exit 0
+            ;;
+    *   )   echo -e "$USAGE"
+            exit 1
+            ;;
+    
+esac
+
+if pgrep ffplay;then
+    killall ffplay 2&>/dev/null  
+    ffplay -nodisp "$BBCURL$STATION$EXT" &>/dev/null
+else
+    ffplay -nodisp "$BBCURL$STATION$EXT" &>/dev/null
+fi
+
+exit 0
