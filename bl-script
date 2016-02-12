@@ -3,22 +3,31 @@
 # bl-script will make a new script in ~/bin, make it executable,
 # then open it in the default text editor.
 #
-# Written by <damo> for BunsenLabs
+# The script name can be entered as a script parameter, or if none is given
+# it can be entered in an entry dialog
+#
+# Written by <damo> for BunsenLabs Linux, February 2016 
 
 BIN="$HOME/bin"
 
-if [ $# -lt 1 ];then
+if (( $# == 0 ));then
     while :; do
-        NAME=$(zenity --entry --title="New script" \
-            --text="Enter script name..." --width=400)
+        NAME=$(yad --entry --title="New script" \
+                --window-icon="distributor-logo-bunsenlabs" \
+                --center --text="Enter script name..." --width=400 \
+                )
         RET=$?
-        if [[ $RET = 1 ]];then
+        if (( $RET == 1 ));then
             exit
         fi
         if ! [[ -z $NAME ]];then
             if [ -f "$BIN/$NAME" ];then
-                zenity --question --title="New script" --text="File exists. Overwrite?"
-                if [[ $? = 0 ]];then
+                yad --title="New script" --text="File exists. Overwrite?" \
+                --window-icon="distributor-logo-bunsenlabs" \
+                --image="dialog-question" \
+                --center --undecorated \
+                
+                if (( $? == 0 ));then
                     break
                 else
                     echo "Cancelled overwrite..."
@@ -31,8 +40,12 @@ if [ $# -lt 1 ];then
 else
     NAME=$1
     if [ -f "$BIN/$NAME" ];then
-        zenity --question --title="New script" --text="File exists. Overwrite?"
-        if [[ $? = 1 ]];then
+        yad --title="New script" --text="File exists. Overwrite?" \
+            --window-icon="distributor-logo-bunsenlabs" \
+            --image="dialog-question" \
+            --center --undecorated
+
+        if (( $? == 1 ));then
             exit
         fi
     fi
