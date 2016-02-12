@@ -3,6 +3,8 @@
 ## yad dialog to download and save youtube video
 ##
 ## written by <damo> June 2015
+#
+########################################################################
 
 CMD="youtube-dl -o "
 FTYPES="mp4!avi!mov!wmv!flv!3gp!mkv"
@@ -12,7 +14,7 @@ progbar(){                                      # progress bar
         echo ""
         sleep 1s
     done | DLG=$(yad --progress --pulsate --auto-kill \
-            --window-icon=distributor-logo-bunsenlabs \
+            --window-icon="distributor-logo-bunsenlabs" \
             --center --undecorated --text="Youtube downloader: Progress..." \
             )
     if [[ $? = 0 ]];then
@@ -40,7 +42,7 @@ killprog(){                                     # kill progress dialog
 }
 
 while :; do
-    ENTRY=$(yad --form --window-icon=distributor-logo-bunsenlabs --center \
+    ENTRY=$(yad --form --window-icon="distributor-logo-bunsenlabs" --center \
         --title="Youtube downloader" \
         --field="Enter Filename":SFL \
         --field="Enter youtube url" \
@@ -81,7 +83,8 @@ RECORDING="$SAVE.$FTYPE" # add file extension
 if (( $RET == 0 ));then
     while :; do
         if [[ -f $RECORDING ]];then
-            DLG=$(yad --form --window-icon=distributor-logo-bunsenlabs \
+            DLG=$(yad --form --window-icon="distributor-logo-bunsenlabs" \
+                --image="dialog-question"
                 --text="File exists. Overwrite?" \
                 --title="Youtube downloader" --center --undecorated \
                 )

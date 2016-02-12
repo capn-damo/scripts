@@ -1,5 +1,10 @@
 #!/bin/bash
 ##
+## Stream BBC Radio stations
+#
+# <damo>  February 2016
+#
+########################################################################
 
 USAGE="bbc [station number]|[kill]
 BBC RADIO STATIONS\n

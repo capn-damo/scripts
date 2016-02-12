@@ -1,5 +1,10 @@
 #!/bin/bash
 ##
+## Record soundcard output (using pulse); then open file for editing
+#
+# <damo> February 2016
+#
+########################################################################
 
 SOUNDEDITOR="/usr/bin/mhwaveedit --driver pulse"
 FTYPE="mp3"

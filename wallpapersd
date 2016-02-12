@@ -9,6 +9,9 @@
 # To run while logged in, add "wallpapersd &" to your autostart
 #
 # REQUIRES: 'feh'
+#
+#      !!! NB "xprop -spy" has a memory leak bug !!!
+#
 ###############################################################################
 
 WALLS_FILE="$HOME/.config/wallpapers.cfg"
