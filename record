@@ -1,7 +1,7 @@
 #!/bin/bash
 ##
 
-SOUNDEDITOR="/usr/bin/mhwaveedit"
+SOUNDEDITOR="/usr/bin/mhwaveedit --driver pulse"
 FTYPE="mp3"
 
 # get pulseaudio soundcard output name
@@ -23,7 +23,7 @@ while : ;do
                 --window-icon=distributor-logo-bunsenlabs \
                 )
                 if [[ $? = 0 ]];then
-                    rm "$RECORDING"    # avconv won't auto-overwrite, so delete existing file
+                    rm "$RECORDING"    # ffmpeg won't auto-overwrite, so delete existing file
                     break
                 else
                     echo "Cancelled overwrite..."
@@ -46,16 +46,19 @@ done
 
 REC=$(yad --form --text="Start recording $RECORDING?" --title="Record stream" \
     --window-icon=distributor-logo-bunsenlabs \
-    --center --button=OK:0 --button:Exit:1 \
+    --center --button=OK:0 --button=Exit:1 \
     --width=300 \
     )
-if [[ $? = 0 ]];then
-    ffmpeg -f pulse -i $SRC "$RECORDING" &
+if (( $? == 0 ));then
+    ffmpeg -f pulse -ac 2 -i $SRC "$RECORDING" &
+else
+    exit
+fi
     
-    # progress bar
-    while :; do
-        echo ""
-        sleep 1s
+# progress bar
+while : ; do
+    echo ""
+    sleep 1s
     done | \
     DLG=$(yad --progress --pulsate --text="Stop recording?" \
     --title="Record stream" --button=Stop:0 --center \
@@ -63,11 +66,13 @@ if [[ $? = 0 ]];then
     --width=300 \
     )
     
+if (( $? == 0 ));then
     killall ffmpeg
 else
     exit 0
 fi
 
+echo -e "Starting sound editor...\n"
 $SOUNDEDITOR "$RECORDING" &      # run sound editor
 
 exit 0
