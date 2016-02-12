@@ -7,7 +7,7 @@ Various works-in-progress
 
 * **gimp-build**    : Build latest GIMP development from git
 * **gimp-update**   : Update GIMP from git
-* **gimpdev**       : Re-write, combining above 2 scripts.  By <xaos52>
+* **gimpdev**       : Re-write, combining above 2 scripts.  By *xaos52*
 
 * **Paper-icons-colorize**  : Colorize Paper folder icons
 
