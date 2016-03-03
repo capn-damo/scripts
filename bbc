@@ -17,7 +17,7 @@ BBC RADIO STATIONS\n
 5:\tRadio 5Live
 5x:\tRadio 5Live Sports Extra
 6:\tRadio 6\n
-kill:\tClose stream"
+0:\tClose stream"
 
 BBCURL="http://a.files.bbci.co.uk/media/live/manifesto/audio/simulcast/hls/uk/sbr_high/ak/"
 EXT=".m3u8"
@@ -41,7 +41,7 @@ case "$INDEX" in
     5   )   STATION="bbc_radio_five_live";;
     5x  )   STATION="bbc_radio_five_live_sports_extra";;
     6   )   STATION="bbc_6music";;
-    kill)   killall ffplay
+    0   )   killall ffplay
             exit 0
             ;;
     *   )   echo -e "$USAGE"
