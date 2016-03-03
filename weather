@@ -1,0 +1,34 @@
+#!/bin/bash
+##
+## Script to open an xterm and display weather data <damo> March 2016
+##
+## If City parameter is passed to script, then that is city data retrieved,
+## else default is used (current IP location)
+#
+########################################################################
+#
+# wttr.in uses wego as a backend
+#Usage: (from http://wttr.in/:help )
+
+    #$ curl wttr.in          # current location
+    #$ curl wttr.in/muc      # weather in the Munic airport
+
+#Supported locations:
+
+    #/paris                  # city name
+    #/muc                    # airport code (3 letters)
+    #/@stackoverflow.com     # domain name
+
+#Special URLs:
+
+    #/:help                  # show this page
+#
+########################################################################
+
+if [[ $1 ]];then
+    xterm -g 130x40 -hold -T "Weather in $1" -e curl -4 http://wttr.in/$1 &
+else
+    xterm -g 130x40 -hold -T "Local Weather" -e curl -4 http://wttr.in/ &
+fi
+
+exit
