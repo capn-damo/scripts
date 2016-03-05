@@ -1,13 +1,8 @@
 #!/bin/bash
 ##
-## Stream BBC Radio stations
-#
-# <damo>  February 2016
-#
-########################################################################
 
-USAGE="bbc [station number]|[kill]
-BBC RADIO STATIONS\n
+USAGE="USAGE:  bbc [station number]||[0 (=kill)]|| --help \n
+BBC RADIO STATIONS
 1:\tRadio 1
 1x:\tRadio 1 extra
 2:\tRadio 2
@@ -17,7 +12,11 @@ BBC RADIO STATIONS\n
 5:\tRadio 5Live
 5x:\tRadio 5Live Sports Extra
 6:\tRadio 6\n
-0:\tClose stream"
+0:\tClose stream
+
+Example:  play BBC Radio5 with 'bbc 5';
+          kill ffplay stream with 'bbc 0'
+"
 
 BBCURL="http://a.files.bbci.co.uk/media/live/manifesto/audio/simulcast/hls/uk/sbr_high/ak/"
 EXT=".m3u8"
@@ -26,6 +25,7 @@ INPUT="$1"
 
 if (( $# == 0 )) || [[ $INPUT = --help ]];then
     echo -e "$USAGE"
+    exit
 else
     INDEX="$INPUT"
 fi
@@ -44,7 +44,8 @@ case "$INDEX" in
     0   )   killall ffplay
             exit 0
             ;;
-    *   )   echo -e "$USAGE"
+    *   )   echo -e "Don't know what this means :( \n"
+            echo -e "$USAGE"
             exit 1
             ;;
     
