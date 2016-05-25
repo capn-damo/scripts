@@ -39,7 +39,7 @@ done
     URL=${retChoice[1]}
     URL=${URL##*'='}
     PLAY=${retChoice[2]}
-
+    
     if (( $RET == 1 ));then
         exit
     fi
@@ -51,13 +51,14 @@ done
 done
 
 # Run youtube download, pipe to progress dialog
-youtube-dl -i -o "$SAVEDIR/%(id)s.%(ext)s" $URL | yad --borders=10 --progress --pulsate --progress-text="Downloading..." \
+youtube-dl -i -o "$SAVEDIR/%(id)s.%(ext)s" $URL | yad --progress --pulsate \
+            --progress-text="" \
             --auto-kill --auto-close \
-            --window-icon=distributor-logo-bunsenlabs \
-            --center --undecorated --text="Youtube downloader: \n" 
+            --window-icon=distributor-logo-bunsenlabs --borders=10 \
+            --center --undecorated --text="Youtube downloader:"
 
-if (( ${PIPESTATUS[0]} ));then
-    rm "$SAVEDIR/$URL".*.part
+if (( $PIPESTATUS == 1 ));then
+    rm $(find $SAVEDIR -type f -name $URL.* | grep part) &>/dev/null
     notify-send -t 3000 --icon "dialog-info" "Download cancelled"
     exit
 fi
