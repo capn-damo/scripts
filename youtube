@@ -2,7 +2,7 @@
 ##
 ## yad dialog to download and save youtube video
 ##
-## written by <damo> June 2015
+## written by <damo> May 2016
 
 if ! type youtube-dl &>/dev/null;then
     DLG=$(yad --form --window-icon=distributor-logo-bunsenlabs \
