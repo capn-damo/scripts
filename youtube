@@ -3,7 +3,10 @@
 ## yad dialog to download and save youtube video
 ##
 ## written by <damo> May 2016
+##
+## Progress pipe method contributed by <misko_2083>
 
+# Check youtube-dl is installed
 if ! type youtube-dl &>/dev/null;then
     DLG=$(yad --form --window-icon=distributor-logo-bunsenlabs \
         --borders=10 \
@@ -28,19 +31,19 @@ while :; do
     i=0
     retChoice=()
 
-for ret in $ENTRY;do 
-    retChoice[$i]="$ret"
-    i=$(($i+1))
-done
+    for ret in $ENTRY;do 
+        retChoice[$i]="$ret"
+        i=$(($i+1))
+    done
 
     IFS=$OIFS # reset IFS back to default
 
     SAVEDIR=${retChoice[0]} # directory path
     URL=${retChoice[1]}
-    URL=${URL##*'='}
+    URL=${URL##*'='}        # extract filename
     PLAY=${retChoice[2]}
     
-    if (( $RET == 1 ));then
+    if (( $RET == 1 ));then     # Cancelled
         exit
     fi
     if [[ -z $SAVEDIR ]] || [[ -z $URL ]];then
@@ -51,13 +54,18 @@ done
 done
 
 # Run youtube download, pipe to progress dialog
-youtube-dl -i -o "$SAVEDIR/%(id)s.%(ext)s" $URL | yad --progress --pulsate \
-            --progress-text="" \
-            --auto-kill --auto-close \
-            --window-icon=distributor-logo-bunsenlabs --borders=10 \
-            --center --undecorated --text="Youtube downloader:"
+youtube-dl --newline -i -o "$SAVEDIR/%(id)s.%(ext)s" $URL \
+| while read -r line ; do
+   if [[ "$(echo $line | grep '[0-9]*%')" ]];then   # get % of download
+      percent=$(echo $line | awk '{print $2}')
+      echo "${percent%.*}%"
+   fi 
+done | yad --progress --auto-close \
+            --window-icon=distributor-logo-bunsenlabs \
+            --center --undecorated --borders=10 \
+            --text="Youtube downloader\n\nDownloading: $URL" --button="gtk-cancel:1"
 
-if (( $PIPESTATUS == 1 ));then
+if (( $PIPESTATUS == 1 ));then      # Download cancelled, so clean up
     rm $(find $SAVEDIR -type f -name $URL.* | grep part) &>/dev/null
     notify-send -t 3000 --icon "dialog-info" "Download cancelled"
     exit
@@ -68,3 +76,4 @@ if [[ $PLAY = TRUE ]] &>/dev/null;then
 fi
 
 exit 0
+
