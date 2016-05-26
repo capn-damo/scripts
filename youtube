@@ -1,9 +1,10 @@
 #!/bin/bash
 ##
-## yad dialog to download and save youtube video
+## yad dialog to download and save youtube video (or audio-only)
 ##
-## written by <damo> May 2016
+## NB It will work on many other websites as well ;)
 ##
+## Written by <damo> May 2016
 ## Progress pipe method contributed by <misko_2083>
 
 # Check youtube-dl is installed
@@ -23,6 +24,8 @@ while :; do
         --field="Enter Save directory:DIR" \
         --field="Enter youtube url" \
         --field="Play file when downloaded:CHK" \
+        --field="Audio only:CHK" \
+
         )
     RET=$?
 
@@ -42,6 +45,7 @@ while :; do
     URL=${retChoice[1]}
     URL=${URL##*'='}        # extract filename
     PLAY=${retChoice[2]}
+    AUDIO=${retChoice[3]}
     
     if (( $RET == 1 ));then     # Cancelled
         exit
@@ -54,8 +58,13 @@ while :; do
 done
 
 # Run youtube download, pipe to progress dialog
-youtube-dl --newline -i -o "$SAVEDIR/%(id)s.%(ext)s" $URL \
-| while read -r line ; do
+if [[ $AUDIO == FALSE ]]; then
+    UTUBE="youtube-dl --newline -i -o $SAVEDIR/%(id)s.%(ext)s $URL"
+else
+    UTUBE="youtube-dl -f 141/bestaudio -i -o $SAVEDIR/%(id)s.%(ext)s $URL"
+fi
+
+$UTUBE | while read -r line ; do
    if [[ "$(echo $line | grep '[0-9]*%')" ]];then   # get % of download
       percent=$(echo $line | awk '{print $2}')
       echo "${percent%.*}%"
