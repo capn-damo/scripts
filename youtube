@@ -65,7 +65,7 @@ while :; do
         --title="Youtube downloader" \
         --field="Enter Save directory:DIR" "" \
         --field="Audio only:CHK" "" \
-        --field="Simultanious Downloads:CB" '5!4!3!2!1' \
+        --field="Simultaneous Download:CB" '5!4!3!2!1' \
         --field="Enter youtube url" \
         --field="Enter youtube url" \
         --field="Enter youtube url" \
