@@ -62,7 +62,6 @@ while :; do
     ENTRY=$(yad --form --window-icon "$ICON" --center \
         --borders=10 --title "$TITLE" --image "$IMAGE" --image-on-top \
         --text "Select a folder to download\n and paste URL(s) into any field" \
-        --title="Youtube downloader" \
         --field="Enter Save directory:DIR" "" \
         --field="Audio only:CHK" "" \
         --field="Simultaneous Download:CB" '5!4!3!2!1' \
