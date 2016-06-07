@@ -31,6 +31,16 @@ TEXT="   <b>Downloads</b> in progress:"        # dialog text
 ICON="distributor-logo-bunsenlabs"          # window icon (appears in launcher)
 IMAGE="browser-download"                    # window image (appears in dialog)
 
+# Check youtube-dl is installed
+if ! type youtube-dl &>/dev/null;then
+    DLG=$(yad --form --window-icon "$ICON" \
+        --borders=10 \
+        --text="   youtube-dl not found\n\n  Install it first and run the script again" --button="gtk-ok:0" \
+        --title "$TITLE" --center --image "$IMAGE" \
+    )
+    exit
+fi
+
 download() {
   youtube-dl $UTUBE -i -o "$SAVEDIR/%(id)s.%(ext)s" "$1" 2>&1 \
   | while read line; do
