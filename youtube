@@ -1,85 +1,154 @@
 #!/bin/bash
-##
-## yad dialog to download and save youtube video
-##
-## written by <damo> May 2016
-##
-## Progress pipe method contributed by <misko_2083>
 
-# Check youtube-dl is installed
-if ! type youtube-dl &>/dev/null;then
-    DLG=$(yad --form --window-icon=distributor-logo-bunsenlabs \
-        --borders=10 \
-        --text="   youtube-dl not found\n\n  Install it first and run the script again" --button="OK" \
-        --title="Youtube downloader" --center --undecorated \
-    )
-    exit
-fi
+# DESCRIPTION:  YAD Wrapper for youtube-dl
+#
+# LICENSE:      GNU GPLv3 (http://www.gnu.de/documents/gpl-3.0.en.html)
+#
+# NOTICE:       THERE IS NO WARRANTY FOR THE PROGRAM, TO THE EXTENT PERMITTED BY APPLICABLE LAW. 
+#               EXCEPT WHEN OTHERWISE STATED IN WRITING THE COPYRIGHT HOLDERS AND/OR OTHER PARTIES 
+#               PROVIDE THE PROGRAM “AS IS” WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESSED OR 
+#               IMPLIED, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY 
+#               AND FITNESS FOR A PARTICULAR PURPOSE. THE ENTIRE RISK AS TO THE QUALITY AND 
+#               PERFORMANCE OF THE PROGRAM IS WITH YOU. SHOULD THE PROGRAM PROVE DEFECTIVE,
+#               YOU ASSUME THE COST OF ALL NECESSARY SERVICING, REPAIR OR CORRECTION.
+#
+#               IN NO EVENT UNLESS REQUIRED BY APPLICABLE LAW OR AGREED TO IN WRITING WILL ANY 
+#               COPYRIGHT HOLDER, OR ANY OTHER PARTY WHO MODIFIES AND/OR CONVEYS THE PROGRAM AS 
+#               PERMITTED ABOVE, BE LIABLE TO YOU FOR DAMAGES, INCLUDING ANY GENERAL, SPECIAL, 
+#               INCIDENTAL OR CONSEQUENTIAL DAMAGES ARISING OUT OF THE USE OR INABILITY TO USE 
+#               THE PROGRAM (INCLUDING BUT NOT LIMITED TO LOSS OF DATA OR DATA BEING RENDERED 
+#               INACCURATE OR LOSSES SUSTAINED BY YOU OR THIRD PARTIES OR A FAILURE OF THE 
+#               PROGRAM TO OPERATE WITH ANY OTHER PROGRAMS), EVEN IF SUCH HOLDER OR OTHER 
+#               PARTY HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+
+# Main method used from Glutanimate's yad_wget script
+# https://github.com/Glutanimate/misc-scripts/blob/master/Internet/yad_wget
+
+# Set GUI variables up
+TITLE="YAD youtube-dl wrapper"                 # dialog title
+TEXT="   <b>Downloads</b> in progress:"        # dialog text
+ICON="distributor-logo-bunsenlabs"          # window icon (appears in launcher)
+IMAGE="browser-download"                    # window image (appears in dialog)
+
+download() {
+  youtube-dl $UTUBE -i -o "$SAVEDIR/%(id)s.%(ext)s" "$1" 2>&1 \
+  | while read line; do
+     echo "$2:#Preparing to download $1"
+
+     if [[ "$(echo $line | grep '[0-9]*%')" ]];then
+        percent=$(echo $line | awk '{print $2}')
+        echo "$2:${percent%.*}%"
+     fi
+
+     if [[ "$(echo $line | grep '\[download\]')" ]];then
+        progress=$(echo $line | awk '{$1=""; print $0}')
+        echo "$2:#$progress"
+     fi
+
+   done
+    RET_YT="${PIPESTATUS[0]}"
+    if [[ "$RET_YT" = 0 ]]
+      then
+          echo "$2:100%"
+          echo "$2:#Download completed."
+          
+      else
+          echo "$2:#Download error."
+    fi
+}
 
 while :; do
-    ENTRY=$(yad --form --window-icon=distributor-logo-bunsenlabs --center \
-        --borders=10 \
+    ENTRY=$(yad --form --window-icon "$ICON" --center \
+        --borders=10 --title "$TITLE" --image "$IMAGE" --image-on-top \
+        --text "Select a folder to download\n and paste URL(s) into any field" \
         --title="Youtube downloader" \
-        --field="Enter Save directory:DIR" \
+        --field="Enter Save directory:DIR" "" \
+        --field="Audio only:CHK" "" \
+        --field="Simultanious Downloads:CB" '5!4!3!2!1' \
         --field="Enter youtube url" \
-        --field="Play file when downloaded:CHK" \
-        --field="Audio only:CHK" \
+        --field="Enter youtube url" \
+        --field="Enter youtube url" \
+        --field="Enter youtube url" \
+        --field="Enter youtube url" \
+        --field="Enter youtube url" \
+        --field="Enter youtube url" \         # make as many url fields as you need
         )
     RET=$?
 
     OIFS=$IFS # save Internal Field Separator
     IFS="|" # separator is "|" in returned choices
+
     i=0
     retChoice=()
 
-    for ret in $ENTRY;do 
-        retChoice[$i]="$ret"
-        i=$(($i+1))
-    done
+    e=0
+    URLIST=()
+
+for ret in $ENTRY;do
+    if [[ $i -lt 3 ]];then          # read option fields values
+       retChoice[$i]="$ret"
+       i=$(($i+1))                    # iterate i
+    elif [[ "$ret" != "" ]] && [[ "$ret" =~ [0-9] ]];then   # if url field is not empty and not simultanious download number
+       URLIST[$e]="${ret##*'='}"                     # extract filename
+       YADBARS="$YADBARS --bar=${URLIST[$e]}:NORM"   # add bars to a yad multiprogress dialog
+       e=$(($e+1))                    # iterate e
+    fi
+done
 
     IFS=$OIFS # reset IFS back to default
 
     SAVEDIR=${retChoice[0]} # directory path
-    URL=${retChoice[1]}
-    URL=${URL##*'='}        # extract filename
-    PLAY=${retChoice[2]}
-    AUDIO=${retChoice[3]}
-    
-    if (( $RET == 1 ));then     # Cancelled
+    AUDIO=${retChoice[1]}
+    MAXDLS=${retChoice[2]}  # maximum number of simultaneous downloads
+    if [[ $AUDIO == FALSE ]]; then
+       UTUBE="--newline"
+    else
+       UTUBE="--newline -f 141/bestaudio"
+    fi
+
+    if (( $RET == 1 ));then
         exit
     fi
-    if [[ -z $SAVEDIR ]] || [[ -z $URL ]];then
-        yad --form --text="Complete both fields" --center --window-icon=distributor-logo-bunsenlabs
+    if [[ -z $SAVEDIR ]] || [[ ${#URLIST[@]} -eq 0 ]];then
+        yad --form --text="Enter at least one url field\nand select a folder" \
+        --center --title "$TITLE" --window-icon "$ICON" --image "$IMAGE" --button="gtk-ok:0"
     else
         break
     fi
 done
 
-# Run youtube download, pipe to progress dialog
-if [[ $AUDIO == FALSE ]]; then
-    UTUBE="youtube-dl --newline -i -o $SAVEDIR/%(id)s.%(ext)s $URL"
-else
-    UTUBE="youtube-dl -f 141/bestaudio -i -o $SAVEDIR/%(id)s.%(ext)s $URL"
-fi
 
-$UTUBE 2>/dev/null | while read -r line ; do
-   if [[ "$(echo $line | grep '[0-9]*%')" ]];then   # get % of download
-      percent=$(echo $line | awk '{print $2}')
-      echo "${percent%.*}%"
-   fi 
-done | yad --progress --auto-close \
-            --window-icon=distributor-logo-bunsenlabs \
-            --center --undecorated --borders=10 \
-            --text="Youtube downloader\n\nDownloading: $URL" --button="gtk-cancel:1" 
+IFS=" "
+COUNTER="1"
+DYNAMIC_COUNTER="1"
+PID=()
 
-if (( $PIPESTATUS == 1 ));then      # Download cancelled, so clean up
-    rm $(find $SAVEDIR -type f -name $URL.* | grep part) &>/dev/null
+for URL in ${URLIST[@]}; do
+    if [[ "$DYNAMIC_COUNTER" = "$MAXDLS" ]] # only download n files at a time
+      then
+          download "$URL" "$COUNTER" &     # pass URL and counter number to download()
+          PID+=("$!")                      # gets process pid
+          max="$(($COUNTER-1))"              # -1, since start counter is 1, and arrays begin at 0
+          MAX_PID=${PID[$max]}              # sets the variable pid from array PID
+          wait $MAX_PID                       # wait until process with MAX_PID finishes
+          DYNAMIC_COUNTER="1"               # reset dynamic counter
+      else
+          download "$URL" "$COUNTER" &      # pass URL and counter number to download()
+          PID+=("$!")                      
+          DYNAMIC_COUNTER="$(($DYNAMIC_COUNTER+1))"  # iterate dinamic counter
+    fi
+    COUNTER="$[$COUNTER+1]"                    # iterate counter
+done | yad --multi-progress $YADBARS --title "$TITLE" --button=Cancel"!gtk-close:1" \
+--text "$TEXT" --center --window-icon "$ICON" --image "$IMAGE" --image-on-top --auto-close
+
+if (( $? == 1 ));then      # Download canceled, so clean up
+    for pid in ${PID[@]};do
+        kill $pid &>/dev/null         # kill any running download process
+    done
+    for url in ${URLIST[@]}; do
+        echo $url
+        rm $(find $SAVEDIR -type f -name $url.* | grep part) &>/dev/null
+    done
     notify-send -t 3000 --icon "dialog-info" "Download cancelled"
     exit
 fi
-
-if [[ $PLAY = TRUE ]] &>/dev/null;then
-    xdg-open "$SAVEDIR/$URL".*
-fi
-
-exit 0
