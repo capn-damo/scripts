@@ -20,8 +20,9 @@
 #               INACCURATE OR LOSSES SUSTAINED BY YOU OR THIRD PARTIES OR A FAILURE OF THE 
 #               PROGRAM TO OPERATE WITH ANY OTHER PROGRAMS), EVEN IF SUCH HOLDER OR OTHER 
 #               PARTY HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
-
-# Main method used from Glutanimate's yad_wget script
+# written by <damo> May 2016
+# re-written by Misko_2083 <Miloš Pavlović> 2016
+# Progress bar method used from Glutanimate's yad_wget script
 # https://github.com/Glutanimate/misc-scripts/blob/master/Internet/yad_wget
 
 # Set GUI variables up
