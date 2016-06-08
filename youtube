@@ -20,10 +20,12 @@
 #               INACCURATE OR LOSSES SUSTAINED BY YOU OR THIRD PARTIES OR A FAILURE OF THE 
 #               PROGRAM TO OPERATE WITH ANY OTHER PROGRAMS), EVEN IF SUCH HOLDER OR OTHER 
 #               PARTY HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+
 # written by <damo> May 2016
-# re-written by Misko_2083 <Miloš Pavlović> 2016
+# re-written by Misko_2083 <Miloš Pavlović> June 2016
 # Progress bar method used from Glutanimate's yad_wget script
 # https://github.com/Glutanimate/misc-scripts/blob/master/Internet/yad_wget
+
 
 # Set GUI variables up
 TITLE="YAD youtube-dl wrapper"                 # dialog title
@@ -72,9 +74,10 @@ while :; do
     ENTRY=$(yad --form --window-icon "$ICON" --center \
         --borders=10 --title "$TITLE" --image "$IMAGE" --image-on-top \
         --text "Select a folder to download\n and paste URL(s) into any field" \
-        --field="Enter Save directory:DIR" "" \
-        --field="Audio only:CHK" "" \
-        --field="Simultaneous Download:CB" '5!4!3!2!1' \
+        --title="Youtube downloader" \
+        --field="Enter Save directory:DIR" "$HOME/Downloads" \
+        --field="Audio only:CHK" "False" \
+        --field="Simultanious Downloads:CB" '1!2!3!4!5' \
         --field="Enter youtube url" \
         --field="Enter youtube url" \
         --field="Enter youtube url" \
@@ -156,7 +159,6 @@ if (( $? == 1 ));then      # Download canceled, so clean up
         kill $pid &>/dev/null         # kill any running download process
     done
     for url in ${URLIST[@]}; do
-        echo $url
         rm $(find $SAVEDIR -type f -name $url.* | grep part) &>/dev/null
     done
     notify-send -t 3000 --icon "dialog-info" "Download cancelled"
