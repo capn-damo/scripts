@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# DESCRIPTION:  YAD Wrapper for youtube-dl
+# DESCRIPTION:  YAD frontend for youtube-dl
 #
 # LICENSE:      GNU GPLv3 (http://www.gnu.de/documents/gpl-3.0.en.html)
 #
@@ -21,9 +21,7 @@
 #               PROGRAM TO OPERATE WITH ANY OTHER PROGRAMS), EVEN IF SUCH HOLDER OR OTHER 
 #               PARTY HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
 
-# written by <damo> May 2016
-# re-written by Misko_2083 <Miloš Pavlović> June 2016
-# Progress bar method used from Glutanimate's yad_wget script
+# Method used from Glutanimate's yad_wget script
 # https://github.com/Glutanimate/misc-scripts/blob/master/Internet/yad_wget
 
 
@@ -44,7 +42,7 @@ if ! type youtube-dl &>/dev/null;then
 fi
 
 download() {
-  youtube-dl $UTUBE -i -o "$SAVEDIR/%(id)s.%(ext)s" "$1" 2>&1 \
+  youtube-dl $UTUBE --newline -i -o "$SAVEDIR/%(id)s.%(ext)s" "$1" 2>&1 \
   | while read line; do
      echo "$2:#Preparing to download $1"
 
@@ -71,22 +69,26 @@ download() {
 }
 
 while :; do
-    ENTRY=$(yad --form --window-icon "$ICON" --center \
+    ENTRY=$(yad --form --columns=1 --window-icon "$ICON" --center \
         --borders=10 --title "$TITLE" --image "$IMAGE" --image-on-top \
         --text "Select a folder to download\n and paste URL(s) into any field" \
-        --title="Youtube downloader" \
+        --title="Youtube downloader" --button="Exit!gtk-cancel:1" --button="Download!gtk-ok:0" \
         --field="Enter Save directory:DIR" "$HOME/Downloads" \
-        --field="Audio only:CHK" "False" \
-        --field="Simultanious Downloads:CB" '1!2!3!4!5' \
-        --field="Enter youtube url" \
-        --field="Enter youtube url" \
-        --field="Enter youtube url" \
-        --field="Enter youtube url" \
-        --field="Enter youtube url" \
-        --field="Enter youtube url" \
-        --field="Enter youtube url" \         # make as many url fields as you need
-        )
+        --field="Download Options:CB" "Normal!Audio only (best)" \
+        --field="Simultaneous Downloads:CB" "1!2!3!4!5" \
+        --field="youtube url         1:" "" \
+        --field="youtube url         2:" "" \
+        --field="youtube url         3:" "" \
+        --field="youtube url         4:" "" \
+        --field="youtube url         5:" "" \
+        --field="youtube url         6:" "" \
+        --field="youtube url         7:" "" \         # make as many url fields as you need
+           )
     RET=$?
+
+    if (( $RET == 1 )) || (( $RET == 252 ));then     # Canceled
+        exit
+    fi
 
     OIFS=$IFS # save Internal Field Separator
     IFS="|" # separator is "|" in returned choices
@@ -98,10 +100,9 @@ while :; do
     URLIST=()
 
 for ret in $ENTRY;do
-    if [[ $i -lt 3 ]];then          # read option fields values
-       retChoice[$i]="$ret"
-       i=$(($i+1))                    # iterate i
-    elif [[ "$ret" != "" ]] && [[ "$ret" =~ [0-9] ]];then   # if url field is not empty and not simultanious download number
+    retChoice[$i]="$ret"
+    i=$(($i+1))                    # iterate i
+    if [[ "$i" -gt 3 ]] && [[ "$ret" != "" ]];then  # get form fields if they are not empty
        URLIST[$e]="${ret##*'='}"                     # extract filename
        YADBARS="$YADBARS --bar=${URLIST[$e]}:NORM"   # add bars to a yad multiprogress dialog
        e=$(($e+1))                    # iterate e
@@ -111,19 +112,19 @@ done
     IFS=$OIFS # reset IFS back to default
 
     SAVEDIR=${retChoice[0]} # directory path
-    AUDIO=${retChoice[1]}
+    OPTION=${retChoice[1]}
+    case $OPTION in
+    "Normal")
+       UTUBE=""
+    ;;
+    "Audio only (best)")
+       UTUBE="-f 141/bestaudio"
+    ;;
+    esac
     MAXDLS=${retChoice[2]}  # maximum number of simultaneous downloads
-    if [[ $AUDIO == FALSE ]]; then
-       UTUBE="--newline"
-    else
-       UTUBE="--newline -f 141/bestaudio"
-    fi
 
-    if (( $RET == 1 ));then
-        exit
-    fi
     if [[ -z $SAVEDIR ]] || [[ ${#URLIST[@]} -eq 0 ]];then
-        yad --form --text="Enter at least one url field\nand select a folder" \
+        yad --form --text="Enter at least one url field\nand select a folder" --borders=10 \
         --center --title "$TITLE" --window-icon "$ICON" --image "$IMAGE" --button="gtk-ok:0"
     else
         break
