@@ -15,8 +15,7 @@
 #### User configurables:  ##############################################
 
 # Get API KEY by registering for one at http://openweathermap.org/api
-#api="your very long api number"
-api="e1a46c8d5740bcd8b670ae0e09a6008e"
+api="your very long api number"
 
 # Either set the location manually here, or by passing it as a script parameter in the Conky.
 # "yourlocation" must be a name (which doesn't have spaces), or a numeric id.
