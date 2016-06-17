@@ -15,8 +15,8 @@
 #### User configurables:  ##############################################
 
 # Get API KEY by registering for one at http://openweathermap.org/api
-api="your very long api number"
-
+#api="your very long api number"
+api=""
 # Either set the location manually here, or by passing it as a script parameter in the Conky.
 # "yourlocation" must be a name (which doesn't have spaces), or a numeric id.
 #
@@ -84,13 +84,14 @@ else
             [[ ${place##*[!0-9]*} ]] &>/dev/null && location="id=$place" || location="q=$place"
         fi
 
+        # get json data from openweathermap:
         weather=$(curl -s http://api.openweathermap.org/data/2.5/weather\?APPID=$api\&"$location"\&units=$metric)
-    
+        city=$(echo "$weather" | jq -r '.name') # In case location has spaces in the name
+
+        # load values into array:
         all=($(echo "$weather" | jq -r '.coord.lon,.coord.lat,.weather[0].main,.main.temp,.main.pressure,.main.temp_min,.main.temp_max,.wind.speed,.wind.deg,.clouds.all,.sys.sunrise,.sys.sunset'))
         #                   ARRAY INDEX  0          1          2                3          4              5              6              7           8         9           10           11
-        
-        city=$(echo "$weather" | jq -r '.name') # In case location has spaces in the name
-        
+
         longitude=$(printf '%06.1f' ${all[0]})
         latitude=$(printf '%+.1f' ${all[1]})
         condition="${all[2]}"
@@ -104,19 +105,8 @@ else
         sunrise=$(date -d @${all[10]} +"%R")
         sunset=$(date -d @${all[11]} +"%R")
         
-        # Choose what you want :)
-        echo "Location= $city"
-        echo "Lat Long= $latitude $longitude"
-        echo "Condition= $condition"
-        echo "Temp= $temperature"
-        echo "Pressure= $pressure"
-        echo "Min temp= $temperature_min"
-        echo "Max temp= $temperature_max"
-        echo "Wind Speed= $windspeed"
-        echo "Wind direction= $winddir"
-        echo "Clouds= $cloud_cover"
-        echo "Sunrise= $sunrise"
-        echo "Sunset= $sunset"
+        #Example format for output:
+        #printf "%s; %s; %s %s" "$city" "$temperature" "$windspeed" "$winddir"
 
     else
         placeholder 1
