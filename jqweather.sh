@@ -87,6 +87,7 @@ else
         # get json data from openweathermap:
         weather=$(curl -s http://api.openweathermap.org/data/2.5/weather\?APPID=$api\&"$location"\&units=$metric)
         city=$(echo "$weather" | jq -r '.name') # In case location has spaces in the name
+        weather_desc=$(echo "$weather" | jq -r '.weather[0].description')   # In case description has spaces in the name
 
         # load values into array:
         all=($(echo "$weather" | jq -r '.coord.lon,.coord.lat,.weather[0].main,.main.temp,.main.pressure,.main.temp_min,.main.temp_max,.wind.speed,.wind.deg,.clouds.all,.sys.sunrise,.sys.sunset'))
@@ -104,6 +105,7 @@ else
         cloud_cover=$(printf '%d%s' ${all[9]} %)
         sunrise=$(date -d @${all[10]} +"%R")
         sunset=$(date -d @${all[11]} +"%R")
+        description="$weather_desc"
         
         #Example format for output:
         #printf "%s; %s; %s %s" "$city" "$temperature" "$windspeed" "$winddir"
