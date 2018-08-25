@@ -8,26 +8,29 @@ import argparse
 import requests
 import textwrap
 
+import argparse
+
 try:
     from lxml import etree
 except ImportError:
     import xml.etree.ElementTree as etree
-    
+
 bullet = '»'
 
 """ get command args """
-color_basic  = sys.argv[1]
-color_alert = sys.argv[2]
-wrapping = sys.argv[3]
+#color_basic  = sys.argv[1]
+#color_alert = sys.argv[2]
+#lines = sys.argv[3]
+#wrapping = sys.argv[4]
 
-if len(sys.argv) < 5:
-    linelength = ''
-else:
-    linelength = int(sys.argv[4])
+#if len(sys.argv) < 6:
+    #linelength = ''
+#else:
+    #linelength = sys.argv[5]
 
 """ set forum atom data """
-#user = ''
-#pwd = ''
+user = ''
+pwd = ''
 auth=(user,pwd)
 url = 'https://forums.bunsenlabs.org/extern.php?action=feed&type=atom'
 
@@ -39,6 +42,19 @@ listPOSTS = []
 listENTRIES = []
 
 ##### Functions ##############
+
+def cmd_args():
+
+    ap = argparse.ArgumentParser()
+
+    ap.add_argument('-col1',required=True)
+    ap.add_argument('-col2',required=True)
+    ap.add_argument('-lines',type=int,required=False)
+    ap.add_argument('-wrap',default=False,required=False)
+    ap.add_argument('-linelength',type=int,required=False)
+    ap.add_argument('-bullet',required=False)
+
+    return ap.parse_args()
 
 def parse_feed(r,arr):
     """ Extract post title and post id from atom feed """
@@ -58,7 +74,6 @@ def load_listMODS(diffs):
     for n in range(end):
         listENTRIES = []
         color = color_basic
-#        linestart = '» '
         linestart = bullet+' '
         title = root[i][0].text
         postid = root[i][5].text
@@ -76,13 +91,29 @@ def load_listMODS(diffs):
 def format_output(arr):
     """ Format the output for conky """
     outputPOSTS = arr
+    n = 1
     for x in outputPOSTS:
+        if n > lines:
+            break
         if wrapping == 'wrap':
             print (textwrap.fill(x[3]+x[0],linelength))
         else:
             print(x[3]+x[0])
+        n += 1
 
 ###### end functions ############
+
+args = cmd_args()
+
+
+color_basic  = args.col1
+color_alert = args.col2
+lines = args.lines
+wrapping = args.wrap
+linelength = args.linelength
+bullet = args.bullet
+
+
 
 f_all = requests.get(url, auth=auth)    # atom feed including moderator-only posts
 f_users = requests.get(url)             # atom feed for general users
@@ -100,3 +131,4 @@ for diff in listDIFF:
 load_listMODS(listIDS)
 
 format_output(listPOSTS)
+
