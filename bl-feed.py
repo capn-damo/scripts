@@ -1,32 +1,48 @@
-#!/usr/bin/env python2.7
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 ##
 ## bl-feed.py
 
 import sys,os
-import datetime
-import subprocess
 import argparse
+import requests
+import textwrap
 
 try:
     from lxml import etree
 except ImportError:
     import xml.etree.ElementTree as etree
+    
+bullet = '»'
 
-bl_fpath1 = os.environ["HOME"] + "/tmp/feed.txt"
-bl_fpath2 = os.environ["HOME"] + "/tmp/feed-all.txt"
+""" get command args """
+color_basic  = sys.argv[1]
+color_alert = sys.argv[2]
+wrapping = sys.argv[3]
 
-arrID_users=[]
-arrID_mods=[]
+if len(sys.argv) < 5:
+    linelength = ''
+else:
+    linelength = int(sys.argv[4])
 
+""" set forum atom data """
+#user = ''
+#pwd = ''
+auth=(user,pwd)
+url = 'https://forums.bunsenlabs.org/extern.php?action=feed&type=atom'
+
+""" initialise lists """
+listID_users=[]
+listID_mods=[]
+listIDS = []
 listPOSTS = []
-arrENTRIES = []
+listENTRIES = []
 
 ##### Functions ##############
 
-def parse_feed(bl_fpath,arr):
-    tree = etree.parse(bl_fpath)
-    root = tree.getroot()
+def parse_feed(r,arr):
+    """ Extract post title and post id from atom feed """
+    root = etree.fromstring(r.text)
     end=len(root)
 
     for i in range (6,end):
@@ -34,49 +50,53 @@ def parse_feed(bl_fpath,arr):
         postid = root[i][5].text
         arr.append(postid)
 
-        id_number = int(filter(str.isdigit, postid))
-        id_number = str(id_number)
-
-        i += 1
-
 def load_listMODS(diffs):
-    tree = etree.parse(bl_fpath2)
-    root = tree.getroot()
-    end = len(arrID_mods)
+    """ Find moderator-only posts, and set conky colors accordingly """
+    root = etree.fromstring(f_all.text)
+    end = len(listID_mods)
     i = 6
     for n in range(end):
-        arrENTRIES = []
-        color = 'color'
+        listENTRIES = []
+        color = color_basic
+#        linestart = '» '
+        linestart = bullet+' '
         title = root[i][0].text
         postid = root[i][5].text
-        id_number = int(filter(str.isdigit, postid))
+        id_number = str(postid)
 
         id_nums = set(diffs)
         if id_number in id_nums:
-            color = 'red'
+            linestart = '${'+color_alert+'}'+bullet+' ${'+color_basic+'}'
 
-        arrENTRIES = [title,postid,id_number,color]
+        listENTRIES = [title,postid,id_number,linestart]
+        listPOSTS.append(listENTRIES)
 
         i += 1
 
-        listPOSTS.append(arrENTRIES)
+def format_output(arr):
+    """ Format the output for conky """
+    outputPOSTS = arr
+    for x in outputPOSTS:
+        if wrapping == 'wrap':
+            print (textwrap.fill(x[3]+x[0],linelength))
+        else:
+            print(x[3]+x[0])
 
 ###### end functions ############
 
-parse_feed(bl_fpath1,arrID_users)
-parse_feed(bl_fpath2,arrID_mods)
+f_all = requests.get(url, auth=auth)    # atom feed including moderator-only posts
+f_users = requests.get(url)             # atom feed for general users
 
-#print(len(arrID_users),': ', len(arrID_mods))
+parse_feed(f_users,listID_users)
+parse_feed(f_all,listID_mods)
 
-s = set(arrID_users)
-arrDIFF = [x for x in arrID_mods if x not in s]
+s = set(listID_users)                               # Collect moderator-only post ids
+listDIFF = [x for x in listID_mods if x not in s]
 
-arrIDS = []
-for diff in arrDIFF:
-    id_num = int(filter(str.isdigit, diff))
-    arrIDS.append(id_num)
+for diff in listDIFF:
+    id_num = str(diff)
+    listIDS.append(id_num)
 
-load_listMODS(arrIDS)
+load_listMODS(listIDS)
 
-print listPOSTS
-
+format_output(listPOSTS)
