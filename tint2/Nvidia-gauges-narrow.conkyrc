@@ -1,0 +1,98 @@
+conky.config = {
+--========================  Nvidia-gauges.conkyrc  ===========================================
+--
+-- by damo, August 2018  <damo.linux@gmail.com>
+--
+--=======================  Based on ideas from...  ===========================================
+-- SunForMiles.conkyrc
+-- Date    : 05 July 2017
+-- Author  : Sun For Miles
+-- Version : v0.41
+-- License : Distributed under the terms of GNU GPL version 2 or later
+--
+-- This version is a modification of conkyrc_seamod, which is modification of conkyrc_lunatico,
+-- which is modification of conkyrc_orange
+--
+-- conkyrc_orange:    http://gnome-look.org/content/show.php?content=137503&forumpage=0
+-- conkyrc_lunatico:  http://gnome-look.org/content/show.php?content=142884
+-- conkyrc_seamod:    http://custom-linux.deviantart.com/art/Conky-Seamod-v0-1-283461046
+--
+-- Ported to Conky v1.10 by damo;
+--
+--=============================================================================================
+
+    background = true,
+    update_interval = 1,
+-- comment out the next line if you are running a single monitor:
+    xinerama_head = 2,
+
+    cpu_avg_samples = 1,
+    net_avg_samples = 2,
+    temperature_unit = 'celsius',
+
+    double_buffer = true,
+    no_buffers = true,
+    text_buffer_size = 2048,
+
+    gap_x = 20,
+    gap_y = 490,
+    minimum_width = 240, minimum_height = 395,
+    maximum_width = 240,
+
+    own_window = true,
+    own_window_transparent = true,
+    own_window_argb_visual = true,
+    own_window_type = 'desktop',
+    own_window_hints = 'undecorated,skip_taskbar,skip_pager,below', --sticky,
+    border_inner_margin = 10,
+    border_outer_margin = 0,
+    alignment = 'top_right',
+
+    draw_shades = false,
+    draw_outline = false,
+    draw_borders = false,
+    draw_graph_borders = false,
+
+    override_utf8_locale = true,
+    use_xft = true,
+    --font = 'Raleway:size=14',
+    font = 'Raleway:size=8',
+    xftalpha = 0.5,
+    uppercase = false,
+
+-- Defining colors
+    default_color = 'FFFFFF',
+    color1 = 'FF5B5B',
+    color2 = '678b8b',
+    color3 = '05C5DA',
+
+-- Loading lua script for drawing rings
+    lua_load = '~/.config/conky/LUA/Nvidia-gauges-narrow.lua',
+    lua_draw_hook_post = 'main',
+
+};
+
+conky.text = [[
+${image /home/damo/.config/conky/images/nvidia-settings.png -p 180,10 -s 64x64}
+${goto 80}${font}${color2}Temperature
+${voffset 40}${goto 35}${color3}${font NotoMono:size=8}${nvidia temp}°C
+${goto 125}${color2}${font}Utilisation
+${voffset 35}${goto 80}${color3}${font NotoMono:size=8}${nvidia gpuutil}%
+${voffset -5}${goto 160}${color2}${font}Memory Used
+${voffset 10}${goto 180}${nvidia memused}MB
+${goto 190}/${nvidia memmax}MB
+${goto 120}${color3}${font NotoMono:size=8}${nvidia memutil}%
+${goto 200}${color2}${font}Fans RPM
+#${goto 225}${alignr}${color2}RPM
+${voffset 30}${goto 160}${color3}${font NotoMono:size=8}${nvidia fanspeed}
+${voffset 75}${alignr}${color2}${font}Power Usage
+${voffset -80}${goto 20}${color2}Perfomance Mode: ${color3}${nvidia perfmode}
+${goto 20}${color2}Perfomance State:  ${color3}${execi 6 nvidia-smi --format=csv,noheader --query-gpu=pstate}
+## NB Conky nvidia performance values don't match nvidia-smi output
+${goto 20}${color2}(Max=P0, Min=P12)
+${voffset 14}${goto 20}${color2}${font}${execi 3600 nvidia-smi --format=csv,noheader --query-gpu=name}
+${goto 20}${font}Driver version:  ${execi 600 nvidia-smi --format=csv,noheader --query-gpu=driver_version}
+${hr}
+${voffset -300}${alignr}${color #8FE03B}gpu
+]];
+
