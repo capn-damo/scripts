@@ -57,7 +57,7 @@ def get_desktop_geometry():
     print ('Number of Monitors= ', str(len(mon_LIST)+1))
     print('Right Monitor starts at ', str(screen_edge))
 
-    return float(screen_edge)
+    return int(screen_edge)
 
 def get_open_windows():
     win_LIST = []
@@ -112,18 +112,25 @@ def get_monitor_pos():
     edge = get_desktop_geometry()
     windows = get_win_geometry()
     for w in windows:
-        win_centre = (w[0] + (w[2]/2))
-        print('screen edge= ',edge,' Centre= ',win_centre)
-        if win_centre > edge:
-            monitor = 2
+
+        # see if window is mainly on left or right monitor
+        # Openbox uses 33%?
+        win_right = (w[0]+w[2])
+        win_centre = ((edge-w[0])/w[2]*100)
+        #print('screen edge= ',edge,' Centre= ',win_centre,'%')
+        if (win_right <= edge):
+            if (win_centre > 33):
+                monitor = 1
         else:
-            monitor = 1
+            monitor = 2
 
-        print('Window geometry: ',w[0], w[1], w[2], w[3],' on Monitor ',monitor)
+        #print('Window geometry: ',w[0], w[1], w[2], w[3],' on Monitor ',monitor)
 
-
-    # see if window is mainly on left or right monitor
-    # is half-width > edge?
+def get_mouse_on_monitor():
+    # xdotool getmouselocation
+    from pynput.mouse import Controller
+    mouse = Controller()
+    print('Mouse x position= ',mouse.position[0])
 
 if __name__ == "__main__":
 
@@ -159,4 +166,5 @@ if __name__ == "__main__":
     #print('grid: ',grid.keys())
     #print(grid['TL'],vert['L'])
 
-    get_monitor_pos()
+    #get_monitor_pos()
+    get_mouse_on_monitor()
