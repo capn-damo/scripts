@@ -77,7 +77,7 @@ def get_desktop_geometry():
 
     desktop = Wnck.Screen.get_active_workspace(screen)
     #print('ActiveDesktop: ', desktop)
-    win_list = screen.get_windows()
+    window_list = screen.get_windows()
 
     mon_LIST=[]
     for m in get_monitors():
@@ -98,23 +98,31 @@ def get_desktop_geometry():
 def get_open_windows():
     win_LIST = []
     win_LIST_xid=[]
-    win_list = screen.get_windows()
-    win_active = screen.get_active_window()
+    window_list = screen.get_windows()
 
-    for win in win_list:
+    for win in window_list:
         if win.is_on_workspace(screen.get_active_workspace()):
             if win.get_class_group_name() != 'Tint2' and win.get_class_group_name() != 'conky':
                 win_LIST.append(win)
                 win_LIST_xid.append( win.get_xid())
 
-        geom=[]
-    for win in win_LIST:
-        geom.append(win.get_geometry())
-    #print(geom)
-
-    return win_LIST,geom
-
-
+    WINDOWS = []
+    i = 0
+    for w in win_LIST:
+        geom = w.get_geometry()
+        WINDOW = ('WINDOW_'+str(i))
+        WINDOW = {
+                'id':win_LIST_xid[i],
+                'xp':geom[0],
+                'yp':geom[1],
+                'widthp':geom[2],
+                'heightp':geom[3]
+                }
+        i += 1
+        WINDOWS.append(WINDOW) 
+    # for w in WINDOWS:
+        # print(w)
+    return(WINDOWS)
 
 def is_on_workspace(win):
     if win.get_pid() == os.getpid():
@@ -151,8 +159,8 @@ def get_win_geometry():
     for win in windows:
         geom.append(win.get_geometry())
 
-    #for g in geom:
-        #print('Window geometry: ',g[0], g[1], g[2], g[3])
+    for g in geom:
+        print('Window geometry: ',g[0], g[1], g[2], g[3])
 
     return geom
 
@@ -203,6 +211,8 @@ def get_window_data(fname):
     else:
         print('no file found')
         
+def load_monitor_dicts():
+    monitors, monitor_edge = get_desktop_geometry()
     
 if __name__ == "__main__":
 
@@ -210,43 +220,44 @@ if __name__ == "__main__":
     screen.force_update()
     w = screen.get_width()
     h = screen.get_height()
-	
-    command = cmd_args()
-    if command == 'ERROR':
-        print(USAGE)
-        sys.exit()
-    else:
-        print('Command= ',command)
-        keybinds = dict_load_KBINDS()
-        print(keybinds[command])        # use list index from cmd_args
 
-    #print('edge= ',get_desktop_geometry())
-    # windows,wingeom = get_open_windows()
-
-    # win_data = []
-    # i = 0
-    # while i < len(windows):
-        # g = wingeom[i]
-        # print('Win= ',windows[i].get_name(),g[0], g[1], g[2], g[3])
-        # win_data.append([str(windows[i]),str(windows[i].get_name()),g[0], g[1], g[2], g[3]])
-        # i += 1
-    #print(win_data)
-    #fname = set_filepaths()
-    
-    # fname = set_filepaths('store')      # options are 'store','args','commands'
-    # if fname == 'Error':
-        # print('Filename not set properly\nExiting...')
+    get_open_windows()
+    # command = cmd_args()
+    # if command == 'ERROR':
+        # print(USAGE)
         # sys.exit()
     # else:
-        # print('Filename= ',fname)   
-        # store_window_data(fname)
-        # print('------------')
-        # get_window_data(fname)
+        # print('Command= ',command)
+        # keybinds = dict_load_KBINDS()
+        # print(keybinds[command])        # use list index from cmd_args
+
+    # #print('edge= ',get_desktop_geometry())
+    # # windows,wingeom = get_open_windows()
+
+    # # win_data = []
+    # # i = 0
+    # # while i < len(windows):
+        # # g = wingeom[i]
+        # # print('Win= ',windows[i].get_name(),g[0], g[1], g[2], g[3])
+        # # win_data.append([str(windows[i]),str(windows[i].get_name()),g[0], g[1], g[2], g[3]])
+        # # i += 1
+    # #print(win_data)
+    # #fname = set_filepaths()
+    
+    # # fname = set_filepaths('store')      # options are 'store','args','commands'
+    # # if fname == 'Error':
+        # # print('Filename not set properly\nExiting...')
+        # # sys.exit()
+    # # else:
+        # # print('Filename= ',fname)   
+        # # store_window_data(fname)
+        # # print('------------')
+        # # get_window_data(fname)
 
 
-    #grid,vert,horiz,vert3,horiz3 = dict_load_KBINDS()
-    #print('grid: ',grid.keys())
-    #print(grid['TL'],vert['L'])
+    # #grid,vert,horiz,vert3,horiz3 = dict_load_KBINDS()
+    # #print('grid: ',grid.keys())
+    # #print(grid['TL'],vert['L'])
 
-    #get_monitor_pos()
-    #get_mouse_on_monitor()
+    # #get_monitor_pos()
+    # #get_mouse_on_monitor()
