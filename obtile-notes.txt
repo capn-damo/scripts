@@ -1,0 +1,26 @@
+store window positions
+----------------------
+
+1: Check toggle file exists. 
+    1. No - goto 2
+    2. Yes - goto 6
+    
+2: for each open window:
+    1. get monitor
+    2. get window ids, and geometry
+    3. dictionary for each monitor, with windows open on each
+    4. write dicts to file (f_tmp-winlist?)
+                
+3. get_mouse_on_monitor (active monitor)
+
+4. tile windows on active monitor
+    1. get command arg (vert,horiz etc)
+    2. get tiling commands from KB dict
+    3. for each window, get next tiling command and send to xdotool
+    
+4. set tiled toggle file (write file)
+
+6. restore original positions when script is next run, on same monitor
+    1. read stored window data from file
+    2. loop through, and send commands to xdotool
+    3. remove toggle file
