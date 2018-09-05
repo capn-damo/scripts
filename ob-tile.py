@@ -110,19 +110,49 @@ def get_open_windows():
     i = 0
     for w in win_LIST:
         geom = w.get_geometry()
+        MONITOR, WINDOW_ON = get_monitor_pos(geom)
+        print('Monitor= ',MONITOR,' WINDOW_ON= ',WINDOW_ON)
         WINDOW = ('WINDOW_'+str(i))
-        WINDOW = {
-                'id':win_LIST_xid[i],
-                'xp':geom[0],
-                'yp':geom[1],
-                'widthp':geom[2],
-                'heightp':geom[3]
-                }
+        if WINDOW_ON == MONITOR:
+            WINDOW = {
+                    'id':win_LIST_xid[i],
+                    'xp':geom[0],
+                    'yp':geom[1],
+                    'widthp':geom[2],
+                    'heightp':geom[3]
+                    }
         i += 1
         WINDOWS.append(WINDOW) 
     # for w in WINDOWS:
         # print(w)
     return(WINDOWS)
+    
+def get_monitor_pos(window):
+    monitors,edge = get_desktop_geometry()
+    #windows = get_win_geometry()
+    for w in window:
+        if monitors > 1:
+            # see if window is mainly on left or right monitor
+            # Openbox uses 33%?
+            win_right = (w[0]+w[2])
+            win_centre = ((edge-w[0])/w[2]*100)
+            #print('screen edge= ',edge,' Centre= ',win_centre,'%')
+            if (win_right <= edge):
+                if (win_centre > 33):
+                    monitor = 1
+            else:
+                monitor = 2
+        else:
+            monitor = 1
+
+    active_monitor = get_mouse_on_monitor()
+    if active_monitor > edge:
+        active_monitor = 1
+    else:
+        active_monitor = 2
+    print('edge ',edge,'active_monitor ',active_monitor)
+    return monitor, active_monitor
+        #print('Window geometry: ',w[0], w[1], w[2], w[3],' on Monitor ',monitor)
 
 def is_on_workspace(win):
     if win.get_pid() == os.getpid():
@@ -152,43 +182,26 @@ def read_data(fname):
     f.close()
     return data
     
-def get_win_geometry():
-    geom=[]
-    windows,wingeom = get_open_windows()
+# def get_win_geometry():
+    # geom=[]
+    # windows,wingeom = get_open_windows()
 
-    for win in windows:
-        geom.append(win.get_geometry())
+    # for win in windows:
+        # geom.append(win.get_geometry())
 
-    for g in geom:
-        print('Window geometry: ',g[0], g[1], g[2], g[3])
+    # for g in geom:
+        # print('Window geometry: ',g[0], g[1], g[2], g[3])
 
-    return geom
+    # return geom
 
-def get_monitor_pos():
-    monitors,edge = get_desktop_geometry()
-    windows = get_win_geometry()
-    for w in windows:
-        if monitors > 1:
-            # see if window is mainly on left or right monitor
-            # Openbox uses 33%?
-            win_right = (w[0]+w[2])
-            win_centre = ((edge-w[0])/w[2]*100)
-            #print('screen edge= ',edge,' Centre= ',win_centre,'%')
-            if (win_right <= edge):
-                if (win_centre > 33):
-                    monitor = 1
-            else:
-                monitor = 2
-        else:
-            monitor = 1
-
-        print('Window geometry: ',w[0], w[1], w[2], w[3],' on Monitor ',monitor)
 
 def get_mouse_on_monitor():
     # xdotool getmouselocation
     from pynput.mouse import Controller
     mouse = Controller()
     print('Mouse x position= ',mouse.position[0])
+    
+    return mouse.position[0]
 
 def store_window_data(fname):
     """ get window positions on monitor(s), and write to file """
@@ -221,7 +234,7 @@ if __name__ == "__main__":
     w = screen.get_width()
     h = screen.get_height()
 
-    get_open_windows()
+    print(get_open_windows())
     # command = cmd_args()
     # if command == 'ERROR':
         # print(USAGE)
