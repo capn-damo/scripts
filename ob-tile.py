@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-## apt-get install pip3 gir1.2-wnck-3.0 
+## apt-get install pip3 gir1.2-wnck-3.0
 ## pip3 install:   pynput screeninfo
 
 import gi, os, sys, re, tempfile, pickle
@@ -43,7 +43,7 @@ def cmd_args():
                 '--horiz3':4,
                 }
         return tiling.get(arg,'ERROR')
-    
+
 def dict_load_KBINDS():
     """ Dictionaries to hold keybinds previously set in rc.xml """
     GRID = {'TL':'super+alt+7','TR':'super+alt+9','BR':'super+alt+3','BL':'super+alt+1','C':'super+alt+5'}    # TL,TR,BR,BL,center
@@ -62,14 +62,14 @@ def set_filepaths(arg):
     # f_STORE_ARG = os.environ['HOME'] + '/ob_tiling.tmp'
     # f_STORE_WIN_CMDS = os.environ['HOME'] + '/win_ids.tmp'
     #return f_TMP_WIN_DIMS
-    
+
     file_case = {
                 'store':os.environ['HOME'] + '/temp-windims.tmp',
                 'args':os.environ['HOME'] + '/ob_tiling.tmp',
                 'commands':os.environ['HOME'] + '/win_ids.tmp',
                 }
     return file_case.get(arg,'Error')
-    
+
 
 def get_desktop_geometry():
 
@@ -79,21 +79,24 @@ def get_desktop_geometry():
     #print('ActiveDesktop: ', desktop)
     window_list = screen.get_windows()
 
+    #print(get_monitors())
     mon_LIST=[]
     for m in get_monitors():
-        edge = re.findall('\+([^]]*)\+',str(m))
-        #print('edge= ',edge)
-        if int(edge[0]) > 0:
-            screen_edge = edge[0]
-            mon_LIST.append(edge[0])
-        else:
+        edge_left = re.findall('\+([^]]*)\+',str(m))
+        #print('edge_left= ',edge_left)
+        if int(edge_left[0]) == 0:
             screen_edge = 0
-        #print('m= ',str(m))
-        monitors = len(mon_LIST)+1
-    print ('Number of Monitors= ', str(monitors))
-    #print('Right Monitor starts at ', str(screen_edge))
+        else:
+            screen_edge = edge_left[0]
+        mon_LIST.append(int(screen_edge))
 
-    return int(monitors),screen_edge
+        #print('m= ',str(m))
+        monitors = len(mon_LIST)
+    #print ('Number of Monitors= ', str(monitors))
+    #print('Right Monitor starts at ', str(screen_edge))
+    mon_LIST.sort(key=int)
+    #print('mon_LIST',mon_LIST)
+    return int(monitors),mon_LIST
 
 def get_open_windows():
     win_LIST = []
@@ -110,10 +113,11 @@ def get_open_windows():
     i = 0
     for w in win_LIST:
         geom = w.get_geometry()
-        MONITOR, WINDOW_ON = get_monitor_pos(geom)
-        print('Monitor= ',MONITOR,' WINDOW_ON= ',WINDOW_ON)
-        WINDOW = ('WINDOW_'+str(i))
-        if WINDOW_ON == MONITOR:
+        # get monitor the window is on
+        MONITOR, MONITOR_FOCUS = get_monitor_pos(geom)
+        #print('Monitor= ',MONITOR,' MONITOR_FOCUS= ',MONITOR_FOCUS,'\n-----------')
+        # only store windows on monitor that has the mouse
+        if MONITOR_FOCUS == MONITOR:
             WINDOW = {
                     'id':win_LIST_xid[i],
                     'xp':geom[0],
@@ -121,38 +125,42 @@ def get_open_windows():
                     'widthp':geom[2],
                     'heightp':geom[3]
                     }
+            WINDOWS.append(WINDOW)
         i += 1
-        WINDOWS.append(WINDOW) 
-    # for w in WINDOWS:
-        # print(w)
+
     return(WINDOWS)
-    
-def get_monitor_pos(window):
-    monitors,edge = get_desktop_geometry()
-    #windows = get_win_geometry()
-    for w in window:
-        if monitors > 1:
-            # see if window is mainly on left or right monitor
-            # Openbox uses 33%?
-            win_right = (w[0]+w[2])
-            win_centre = ((edge-w[0])/w[2]*100)
-            #print('screen edge= ',edge,' Centre= ',win_centre,'%')
-            if (win_right <= edge):
-                if (win_centre > 33):
-                    monitor = 1
-            else:
+
+def get_monitor_pos(w):
+    #print('monitors:',monitors,';Window: ',w)
+    monitor = 1
+    if monitors > 1:
+        # see if window is mainly on left or right monitor
+        # Openbox uses 33%?
+        win_right = (w[0]+w[2])
+        win_left = w[0]
+        win_width = w[2]
+        overlap = ((screen_edge[1] - win_left)/win_width)*100
+        #print('screen edge_left=',screen_edge[0],';right edge_left=',screen_edge[1],';win_left=',w[0],';win_width=',w[2])
+
+        if win_left >= screen_edge[1]:
+            monitor = 2
+        if win_left < screen_edge[1] and win_right > screen_edge[1]:
+            #print('overlapping:',overlap,'%')
+            if overlap < 33:
                 monitor = 2
-        else:
-            monitor = 1
+            else:
+                monitor = 1
+    else:
+        monitor = 1
 
     active_monitor = get_mouse_on_monitor()
-    if active_monitor > edge:
+    if active_monitor < screen_edge[1]:
         active_monitor = 1
     else:
         active_monitor = 2
-    print('edge ',edge,'active_monitor ',active_monitor)
+    #print('edge_left ',screen_edge,'active_monitor ',active_monitor)
+
     return monitor, active_monitor
-        #print('Window geometry: ',w[0], w[1], w[2], w[3],' on Monitor ',monitor)
 
 def is_on_workspace(win):
     if win.get_pid() == os.getpid():
@@ -162,13 +170,13 @@ def write_f_pickle(fname,argsLIST):
     with open(fname,'wb') as f:
         pickle.dump(argsLIST,f)
     f.close()
-    
+
 def write_data(fname,data):
     f = open(fname,'w')
     f.write(str(data))
     f.close
-    
-    
+
+
 def read_f_pickle(fname):
     f = open(fname,'rb')
     data = pickle.load(f)
@@ -181,7 +189,7 @@ def read_data(fname):
     data = f.read()
     f.close()
     return data
-    
+
 # def get_win_geometry():
     # geom=[]
     # windows,wingeom = get_open_windows()
@@ -199,8 +207,8 @@ def get_mouse_on_monitor():
     # xdotool getmouselocation
     from pynput.mouse import Controller
     mouse = Controller()
-    print('Mouse x position= ',mouse.position[0])
-    
+    #print('Mouse x position= ',mouse.position[0])
+
     return mouse.position[0]
 
 def store_window_data(fname):
@@ -223,18 +231,22 @@ def get_window_data(fname):
         print(dataLIST)
     else:
         print('no file found')
-        
+
 def load_monitor_dicts():
     monitors, monitor_edge = get_desktop_geometry()
-    
+
 if __name__ == "__main__":
 
     screen = Wnck.Screen.get_default()
     screen.force_update()
     w = screen.get_width()
     h = screen.get_height()
+    monitors,screen_edge = get_desktop_geometry()
 
-    print(get_open_windows())
+    open_windows = get_open_windows()
+
+#---------------------------------------
+
     # command = cmd_args()
     # if command == 'ERROR':
         # print(USAGE)
@@ -244,7 +256,7 @@ if __name__ == "__main__":
         # keybinds = dict_load_KBINDS()
         # print(keybinds[command])        # use list index from cmd_args
 
-    # #print('edge= ',get_desktop_geometry())
+    # #print('edge_left= ',get_desktop_geometry())
     # # windows,wingeom = get_open_windows()
 
     # # win_data = []
@@ -256,13 +268,13 @@ if __name__ == "__main__":
         # # i += 1
     # #print(win_data)
     # #fname = set_filepaths()
-    
+
     # # fname = set_filepaths('store')      # options are 'store','args','commands'
     # # if fname == 'Error':
         # # print('Filename not set properly\nExiting...')
         # # sys.exit()
     # # else:
-        # # print('Filename= ',fname)   
+        # # print('Filename= ',fname)
         # # store_window_data(fname)
         # # print('------------')
         # # get_window_data(fname)
