@@ -153,12 +153,15 @@ def get_monitor_pos(w):
     else:
         monitor = 1
 
-    active_monitor = get_mouse_on_monitor()
-    if active_monitor < screen_edge[1]:
-        active_monitor = 1
+    if monitors > 1:
+        active_monitor = get_mouse_on_monitor()
+        if active_monitor < screen_edge[1]:
+            active_monitor = 1
+        else:
+            active_monitor = 2
     else:
-        active_monitor = 2
-    #print('edge_left ',screen_edge,'active_monitor ',active_monitor)
+        active_monitor = 1
+        #print('edge_left ',screen_edge,'active_monitor ',active_monitor)
 
     return monitor, active_monitor
 
@@ -244,7 +247,7 @@ if __name__ == "__main__":
     monitors,screen_edge = get_desktop_geometry()
 
     open_windows = get_open_windows()
-
+    print(get_open_windows())
 #---------------------------------------
 
     # command = cmd_args()
