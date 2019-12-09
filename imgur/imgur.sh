@@ -47,12 +47,12 @@ EOF
 ### Get script args ####################################################
 function getargs(){
     if (( $# == 0 ));then               # no args, so run with anonymous, full desktop scrot
-        echo -e "\nAnonymous upload\n"
+        echo -e "\n\tAnonymous upload\n"
         AUTH_MODE="A"
         SCROT="${SCREENSHOT_FULL_COMMAND}"
     fi
-    while [ ${#} != 0 ]; do
-        case "${1}" in
+    while [[ ${#} != 0 ]]; do
+        case "$1" in
             -l | --login)   ID="${CLIENT_ID}" # run as auth user; username set in settings.conf
                             AUTH="Authorization: Bearer ${ACCESS_TOKEN}"  # in curl command
                             AUTH_MODE="L"
@@ -136,7 +136,7 @@ source "${SETTINGS_FILE}"
 ### File and Image functions #####################################################
 function getimage(){
     [[ ${AUTH_MODE} = "A" ]] && ANON="Anonymous "
-    if ! [[ -z ${DELAY} ]] && ! [[ ${SCROT} == "${SCREENSHOT_SELECT_COMMAND}" ]];then
+    if ! [[ -z ${DELAY} ]] 2>/dev/null && ! [[ ${SCROT} == "${SCREENSHOT_SELECT_COMMAND}" ]] 2>/dev/null;then
         SCROT="${SCROT} -d ${DELAY} "
         MSG="\n\tNo image file provided...\n\tProceed with ${ANON}screenshot?\n \
         \n\tThere will be a pause of ${DELAY}s, to select windows etc\n"
@@ -145,7 +145,7 @@ function getimage(){
         MSG="\n\tNo image file provided...\n\tProceed with ${ANON}screenshot?\n"
     fi
 
-    if [[ -z "$1" ]]; then
+    if [[ -z "$1" ]] 2>/dev/null; then
         yad_common_args+=("--image=dialog-question")
         yad_question "${MSG}"
         RET="$?"
@@ -166,7 +166,7 @@ function getimage(){
     fi
     
     # check if file exists
-    if [ ! -f "${IMG_FILE}" ]; then
+    if ! [[ -f "${IMG_FILE}" ]] 2>/dev/null; then
         MSG="\n\tfile '${IMG_FILE}' doesn't exist!\n\n\tExiting script...\n"
         echo -e "${MSG}"
         yad_error "${MSG}"
@@ -198,10 +198,8 @@ function delete_image() {
 
 function take_screenshot() {
     CMD_SCROT="${SCROT}$1"
-#echo -e "\n\tIMG_FILE= $IMG_FILE\n\tCMD_SCROT= $CMD_SCROT" && exit
     shot_err="$(${CMD_SCROT} &>/dev/null)" #takes a screenshot
-#echo "shot_err= $shot_err" && exit
-    if [ "${?}" != "0" ]; then
+    if [ "$?" != "0" ]; then
         MSG="\n\tFailed to take screenshot of\n\t'$1':\n\n\tError: '${shot_err}'"
         echo -e "${MSG}"
         yad_error "${MSG}"
@@ -281,28 +279,28 @@ function get_oauth2_client_secrets(){
 }
 
 function load_access_token() {
-  local current_time preemptive_refresh_time expired
-
-  TOKEN_EXPIRE_TIME=0
-  # check for saved ACCESS_TOKEN and its expiration date
-  if [ -f "${CREDENTIALS_FILE}" ]; then
-    source "${CREDENTIALS_FILE}"
-  fi
-  if [ ! -z "${REFRESH_TOKEN}" ]; then    # token already set
-    current_time="$(date +%s)"
-    preemptive_refresh_time="600" # 10 minutes
-    expired=$((current_time > (TOKEN_EXPIRE_TIME - preemptive_refresh_time)))
-    if [ "${expired}" -eq "1" ]; then      # token expired
-      refresh_access_token
+    local CURRENT_TIME PREEMPTIVE_REFRESH_TIME EXPIRED
+    
+    TOKEN_EXPIRE_TIME=0
+    # check for saved ACCESS_TOKEN and its expiration date
+    if [[ -f "${CREDENTIALS_FILE}" ]] 2>/dev/null; then
+        source "${CREDENTIALS_FILE}"
     fi
-  else
-    acquire_access_token
-    save_access_token
-  fi
+    if [[ ! -z "${REFRESH_TOKEN}" ]] 2>/dev/null; then    # token already set
+        CURRENT_TIME="$(date +%s)"
+        PREEMPTIVE_REFRESH_TIME="600" # 10 minutes
+        EXPIRED=$((CURRENT_TIME > (TOKEN_EXPIRE_TIME - PREEMPTIVE_REFRESH_TIME)))
+    if [[ ${expired} == "1" ]]; then      # token expired
+        refresh_access_token
+    fi
+    else
+        acquire_access_token
+        save_access_token
+    fi
 }
 
 function acquire_access_token() {
-    local url params param_name param_value MSG
+    local URL PARAMS PARAM_NAME PARAM_VALUE MSG
     read -d '' MSG <<EOF
 You need to authorize ${SCRIPT} to upload images.
 
@@ -325,29 +323,29 @@ EOF
     )
     ANS="$?"
     [[ ${ANS} == 1 ]] && exit 0
-    url="$(echo ${RET} | awk -F '|' '{print $2}')"
+    URL="$(echo ${RET} | awk -F '|' '{print $2}')"
 
-    if [[ ! "${url}" =~ "access_token=" ]]; then
+    if [[ ! ${URL} =~ "access_token=" ]] 2>/dev/null; then
         MSG="\n\tERROR: That URL doesn't look right, please start script again\n"
         yad_error "${MSG}"
         exit 1
     fi
-    url="$(echo "${url}" | cut -d "#" -f 2-)"
-    params=("${url//&/ }")
+    URL="$(echo "${URL}" | cut -d "#" -f 2-)"
+    PARAMS=("${URL//&/ }")
     
-    for param in "${params[@]}"; do
-        param_name="$(echo "${param}" | cut -d "=" -f 1)"
-        param_value="$(echo "${param}" | cut -d "=" -f 2-)"
-        case "${param_name}" in
-            access_token)   ACCESS_TOKEN="${param_value}"
+    for param in "${PARAMS[@]}"; do
+        PARAM_NAME="$(echo "${param}" | cut -d "=" -f 1)"
+        PARAM_VALUE="$(echo "${param}" | cut -d "=" -f 2-)"
+        case "${PARAM_NAME}" in
+            access_token)   ACCESS_TOKEN="${PARAM_VALUE}"
                             ;;
-            refresh_token)  REFRESH_TOKEN="${param_value}"
+            refresh_token)  REFRESH_TOKEN="${PARAM_VALUE}"
                             ;;
-            expires_in)     TOKEN_EXPIRE_TIME=$(( $(date +%s) + param_value ))
+            expires_in)     TOKEN_EXPIRE_TIME=$(( $(date +%s) + PARAM_VALUE ))
                             ;;
         esac
     done
-    if [ -z "${ACCESS_TOKEN}" ] || [ -z "${REFRESH_TOKEN}" ] || [ -z "${TOKEN_EXPIRE_TIME}" ]; then
+    if [[ -z "${ACCESS_TOKEN}" ]] || [[ -z "${REFRESH_TOKEN}" ]] || [[ -z "${TOKEN_EXPIRE_TIME}" ]]; then
         MSG="\n\tERROR: Failed parsing the URL.\n\n\tDid you copy the full URL?\n"
         yad_error "${MSG}"
         exit 1
@@ -369,87 +367,66 @@ EOF
 }
 
 function refresh_access_token() {
-    local token_url response expires_in
+    local TOKEN_URL RESPONSE EXPIRES_IN
     
     echo -e "\nRefreshing access token..."
-    token_url="https://api.imgur.com/oauth2/token"
+    TOKEN_URL="https://api.imgur.com/oauth2/token"
     # exchange the refresh token for ACCESS_TOKEN and REFRESH_TOKEN
-    response="$(curl --compressed -fsSL --stderr - -F "client_id=${ID}" -F "client_secret=${CLIENT_SECRET}" -F "grant_type=refresh_token" -F "refresh_token=${REFRESH_TOKEN}" "${token_url}")"
+    RESPONSE="$(curl --compressed -fsSL --stderr - -F "client_id=${ID}" -F "client_secret=${CLIENT_SECRET}" -F "grant_type=refresh_token" -F "refresh_token=${REFRESH_TOKEN}" "${TOKEN_URL}")"
     if [ ! "${?}" -eq "0" ]; then       # curl failed
-        handle_upload_error "${response}" "${token_url}"
+        handle_upload_error "${RESPONSE}" "${TOKEN_URL}"
         exit 1
     fi
     
-    if ! jq -re .access_token >/dev/null <<<"${response}"; then
+    if ! jq -re .access_token >/dev/null <<<"${RESPONSE}"; then
         # server did not send access_token
         echo -e "\nError: Something is wrong with your credentials:"
-        echo "${response}"
+        echo "${RESPONSE}"
         exit 1
     fi
     
-    ACCESS_TOKEN="$(jq -r .access_token <<<"${response}")"
-    REFRESH_TOKEN="$(jq -r .refresh_token <<<"${response}")"
-    expires_in="$(jq -r .expires_in <<<"${response}")"
-    TOKEN_EXPIRE_TIME=$(( $(date +%s) + expires_in ))
-    
+    ACCESS_TOKEN="$(jq -r .access_token <<<"${RESPONSE}")"
+    REFRESH_TOKEN="$(jq -r .refresh_token <<<"${RESPONSE}")"
+    EXPIRES_IN="$(jq -r .expires_in <<<"${RESPONSE}")"
+    TOKEN_EXPIRE_TIME=$(( $(date +%s) + EXPIRES_IN ))
     save_access_token
 }
 
 function fetch_account_info() {
-    local response username
+    local RESPONSE USERNAME
     
-    response="$(curl -H "Authorization: Bearer ${ACCESS_TOKEN}" https://api.imgur.com/3/account/me)"
-    if [ "${?}" -eq "0" ] && [ "$(jq -r .success <<<"${response}")" = "true" ]; then
-        username="$(jq -r .data.url <<<"${response}")"
-        MSG="\n\tLogged in as ${username}. \
-        \n\n\thttps://${username,,}.imgur.com\n"
+    RESPONSE="$(curl -sH "Authorization: Bearer ${ACCESS_TOKEN}" https://api.imgur.com/3/account/me)"
+    if (( $? == 0 )) && [[ $(jq -r .success <<<"${RESPONSE}") = "true" ]]; then
+        USERNAME="$(jq -r .data.url <<<"${RESPONSE}")"
+        MSG="\n\tLogged in as ${USERNAME}. \
+        \n\n\thttps://${USERNAME,,}.imgur.com\n"
         echo -e "${MSG}"
+        yad_common_args+=("--image=dialog-info")
         yad_info "${MSG}"
+        yad_common_args+=("--image=0")
     else
-        MSG="\n\tFailed to fetch info: ${response}\n"
-        echo -e "${MSG}"        
+        MSG="\n\tFailed to fetch info: ${RESPONSE}\n"
+        echo -e "${MSG}"
+        yad_common_args+=("--image=dialog-info")
         yad_info "${MSG}"
+        yad_common_args+=("--image=0")
     fi
 }
 
-function run_browser(){
-#    API_URL="https://api.imgur.com/oauth2/addclient"
-#LINK="https://api.imgur.com/oauth2/authorize?client_id=${ID}&response_type=token"
-
-    local API_CALL="$1"
+function run_browser(){     # run browser with API url, and switch to attention-seeking browser tab
+    local API_CALL="$1"     # function called from button in dialog
     [[ $API_CALL = "addclient" ]] && API_URL="https://api.imgur.com/oauth2/addclient"
     [[ $API_CALL = "token" ]] && API_URL="https://api.imgur.com/oauth2/authorize?client_id=${ID}&response_type=token"
     
     x-www-browser "${API_URL}" 2>/dev/null
-
     switch_to_browser
-    #for id in $(wmctrl -l | awk '{ print $1 }'); do
-        ## filter only windows demanding attention 
-        #xprop -id $id | grep -q "_NET_WM_STATE_DEMANDS_ATTENTION"
-        #if [ $? -eq 0 ]; then
-            #if [ $# -eq 0 ]; then
-                ## no args given, switch to any needy window
-                    #wmctrl -i -a $id
-                #exit 0
-            #else
-                ## match against our args and switch to first match
-                #title="$(wmctrl -l | grep "^$id" | awk '{ $1=$2=$3=""; print $0 }')"
-                #for filter in "$@"; do
-                    #if [[ "$title" == *"$filter"* ]]; then
-                        ## bingo!
-                        #wmctrl -i -a $id
-                        #exit 0
-                    #fi
-                #done
-            #fi
-        #fi
-    #done
 }
+
 function switch_to_browser(){   # switch to new browser tab
     for id in $(wmctrl -l | awk '{ print $1 }'); do
         # filter only windows demanding attention 
         xprop -id $id | grep -q "_NET_WM_STATE_DEMANDS_ATTENTION"
-        if [ $? -eq 0 ]; then
+        if (( $? ==q 0 )); then
             wmctrl -i -a $id
             exit 0
         fi
@@ -501,7 +478,7 @@ if [[ "${AUTH_MODE}" = "L" ]];then        # logged in as user
     load_access_token
     if ! [[ -z "${ALBUM_TITLE}" ]];then   # upload to specified album
         ## get album id
-        response=$(curl -H --location --request GET "https://api.imgur.com/3/account/${USER_NAME}/albums/ids" \
+        response=$(curl -sH --location --request GET "https://api.imgur.com/3/account/${USER_NAME}/albums/ids" \
         --header "${AUTH}")
         declare -a ids 
         ids+=($(jq -r '.data[]' <<< "${response}"))
@@ -509,7 +486,7 @@ if [[ "${AUTH_MODE}" = "L" ]];then        # logged in as user
         # match album ids with chosen album title
         for (( i=0;i<=${#ids[@]};i++ ));do
             ID="${ids[$i]}"
-            response=$(curl -H --location --request GET "https://api.imgur.com/3/account/${USER_NAME}/album/${ID}" --header "${AUTH}")
+            response=$(curl -sH --location --request GET "https://api.imgur.com/3/account/${USER_NAME}/album/${ID}" --header "${AUTH}")
     
             title="$(jq -r '.data.title' <<< "${response}")"
             if [[ "${title}" = "${ALBUM_TITLE}" ]];then
