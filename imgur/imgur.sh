@@ -198,7 +198,9 @@ function delete_image() {
 
 function take_screenshot() {
     CMD_SCROT="${SCROT}$1"
+#echo -e "\n\tIMG_FILE= $IMG_FILE\n\tCMD_SCROT= $CMD_SCROT" && exit
     shot_err="$(${CMD_SCROT} &>/dev/null)" #takes a screenshot
+#echo "shot_err= $shot_err" && exit
     if [ "${?}" != "0" ]; then
         MSG="\n\tFailed to take screenshot of\n\t'$1':\n\n\tError: '${shot_err}'"
         echo -e "${MSG}"
@@ -319,7 +321,7 @@ EOF
     --width=650  \
     --field="Paste here: " "" \
     --button="Run browser:"'/bin/bash -c "run_browser token"' \
-    ${CANCEL}
+    --button="Save token:0" ${CANCEL}
     )
     ANS="$?"
     [[ ${ANS} == 1 ]] && exit 0
@@ -523,7 +525,6 @@ if [[ "${AUTH_MODE}" = "L" ]];then        # logged in as user
 else    # anonymous upload
     response="$(curl -sH "${AUTH}" -F "image=@\"${IMG_FILE}\"" -F "title=${IMG_TITLE}" https://api.imgur.com/3/image)"
 fi
-
 DEL_HASH="$(jq -r '.data | .deletehash' <<< "${response}")"
 IMG_LINK="$(jq -r '.data.link' <<< "${response}")"
 IMG_F="${IMG_LINK%.*}"
