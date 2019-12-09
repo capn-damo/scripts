@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 #
 # Take screenshots and upload them to Imgur.
 # This can be to an existing account, or anonymously.
@@ -11,14 +11,13 @@
 # imgur.sh by @damo December 2019
 #
 # Kudos to the writer of the script at https://github.com/jomo/imgur-screenshot,
-# which has provided the OAuth2 and Imgur API functions used here.
+# which has provided most of the OAuth2 and Imgur API functions adapted here.
 # ("imgur-screenshot" is featured in https://imgur.com/tools.)
 #
 # Copyright (C) 2019 damo    <damo@bunsenlabs.org>
 ########################################################################
 
 BL_COMMON_LIBDIR='/usr/lib/bunsen/common'
-FILE_DIR="$(xdg-user-dir PICTURES)"
 USR_CFG_DIR="$HOME/.config/imgur"
 CREDENTIALS_FILE="${USR_CFG_DIR}/credentials.conf"
 SETTINGS_FILE="${USR_CFG_DIR}/settings.conf"
@@ -100,6 +99,41 @@ function getargs(){
         shift
     done
 }
+### Initialize settings.conf config  ###################################
+function settings_conf(){
+    ! [[ -d "$USR_CFG_DIR" ]] && mkdir -p "$USR_CFG_DIR" 2>/dev/null
+
+    if ! [[ -f "${SETTINGS_FILE}" ]] 2>/dev/null;then
+        touch "${SETTINGS_FILE}" && chmod 600 "${SETTINGS_FILE}"
+        cat <<EOF > "${SETTINGS_FILE}"
+### IMGUR SCREENSHOT DEFAULT CONFIG ####
+### Read by ${SCRIPT} ###################
+# Most of these settings can be overridden with script args
+
+# Imgur settings
+ANON_ID="ea6c0ef2987808e"
+CLIENT_ID=""
+CLIENT_SECRET=""
+USER_NAME=""
+ALBUM_TITLE=""
+IMGUR_ICON_PATH=""
+
+# Local file settings
+# User directory to save image:
+FILE_DIR="$(xdg-user-dir PICTURES)"
+FILE_NAME="imgur-%Y_%m_%d-%H:%M:%S"
+# possible formats are png | jpg | tiff | gif
+FILE_FORMAT="png"   
+
+# Screenshot scrot commands
+SCREENSHOT_SELECT_COMMAND="scrot -s "
+SCREENSHOT_WINDOW_COMMAND="scrot -u -b "
+SCREENSHOT_FULL_COMMAND="scrot "
+
+EOF
+
+    fi
+}
 ### File and Image functions #####################################################
 function getimage(){
     if ! [[ -z ${DELAY} ]] && ! [[ ${SCROT} == "${SCREENSHOT_SELECT_COMMAND}" ]];then
@@ -107,10 +141,11 @@ function getimage(){
         MSG="\n\tNo image file provided...\n\tProceed with screenshot?\n \
         \n\tThere will be a pause of ${DELAY}s, to select windows etc\n"
     else
+        SCROT="${SCROT} -d 1 "   # need a pause so YAD dialog can leave the scene
         MSG="\n\tNo image file provided...\n\tProceed with screenshot?\n"
     fi
 
-    if [[ -z "${1}" ]]; then
+    if [[ -z "$1" ]]; then
         yad_common_args+=("--image=dialog-question")
         yad_question "${MSG}"
         RET="$?"
@@ -171,21 +206,69 @@ function take_screenshot() {
 ### Adapted from https://github.com/jomo/imgur-screenshot ##############
 
 function check_oauth2_client_secrets() {
-  if [ -z "${CLIENT_ID}" ] || [ -z "${CLIENT_SECRET}" ]; then
+    if [ -z "${CLIENT_ID}" ] || [ -z "${CLIENT_SECRET}" ]; then
+        MSG='
+            Your CLIENT_ID and CLIENT_SECRET are not set.
+            
+            You need to register an imgur application at:
+            https://api.imgur.com/oauth2/addclient
+        '
+        DLG=$(${DIALOG} "${TITLE}" ${T}"${MSG}" --button="Get Credentials:0" ${CLOSE})
+        RET=$?
+        (( RET == 0 )) && get_oauth2_client_secrets || exit 1
+    fi
+}
+
+function get_oauth2_client_secrets(){
     MSG='
         Your CLIENT_ID and CLIENT_SECRET are not set.
-        Please register an imgur application at:
+        To register an imgur application:
         
-        https://api.imgur.com/oauth2/addclient
-
-        Select "OAuth 2 authorization without a callback URL" and fill out the form.  
-        Then, set the CLIENT_ID and CLIENT_SECRET in your settings.conf.        
+        Select "OAuth 2 authorization without a callback URL" and fill out the form.
+          
+        Then, set the CLIENT_ID and CLIENT_SECRET in your settings.conf,
+        or paste them in the fields below...        
     '
-    yad_common_args+=("--image=dialog-info")
-    yad_info "${MSG}"
-    yad_common_args+=("--image=0")
-    exit 1
-  fi
+    DLG=$($DIALOG --form --image=dialog-question --image-on-top \
+    --title="Get Imgur authorization" --text="${MSG}" \
+    --fixed --center --borders=20 \
+    --sticky --on-top \
+    --width=650 \
+    --field="Run browser:BTN" '/bin/bash -c run_browser' "" \
+    --field="Client ID:" --field="Client Secret:" "" "" \
+    ${OK} ${CANCEL}
+    )
+    ANS="$?"
+    [[ ${ANS} == 1 ]] && exit 0
+    C_ID="$(echo ${DLG} | awk -F '|' '{print $2}')" # 'pipe' separators
+    C_SECRET="$(echo ${DLG} | awk -F '|' '{print $3}')"
+    
+    # check returned values
+    if [[ -z "${C_ID}" ]] || (( ${#C_ID} != 15 )) || ! [[ ${C_ID} =~ ^[a-fA-F0-9]+$ ]];then
+        ERR_MSG_1="Client ID is wrong!"
+    fi
+    if [[ -z "${C_ID}" ]] || (( ${#C_SECRET} != 40 )) || ! [[ ${C_SECRET} =~ ^[a-fA-F0-9]+$ ]];then
+        ERR_MSG_2="Client Secret is wrong!"
+    fi
+    if [[ ${ERR_MSG_1} ]] || [[ ${ERR_MSG_2} ]]; then
+        DLG_MSG="\n${ERR_MSG_1}\n${ERR_MSG_2}\n\nTry again or Exit script?\n"
+        ERR_DLG=$(${DIALOG} --text="${DLG_MSG}" --undecorated \
+        --image="dialog-question" --button="Exit:1" ${OK})
+        ANS=$?
+        echo "${ANS}"
+        if (( ${ANS} == 0 )); then
+            get_oauth2_client_secrets
+        else
+            exit
+        fi
+    fi
+
+    # write credentials to settings.conf
+    # sed: change line containing <string> to <stringvar>
+    C_ID_LINE="CLIENT_ID="\""${C_ID}\""
+    C_SECRET_LINE="CLIENT_SECRET="\""${C_SECRET}\""
+    sed -i "s/^CLIENT_ID.*/${C_ID_LINE}/" "${SETTINGS_FILE}"
+    sed -i "s/^CLIENT_SECRET.*/${C_SECRET_LINE}/" "${SETTINGS_FILE}"
 }
 
 function load_access_token() {
@@ -316,6 +399,35 @@ function fetch_account_info() {
     fi
 }
 
+function run_browser(){
+#    URL="$1"
+    API_URL="https://api.imgur.com/oauth2/addclient"
+    x-www-browser "${API_URL}"
+    
+    for id in $(wmctrl -l | awk '{ print $1 }'); do
+        # filter only windows demanding attention 
+        xprop -id $id | grep -q "_NET_WM_STATE_DEMANDS_ATTENTION"
+        if [ $? -eq 0 ]; then
+            if [ $# -eq 0 ]; then
+                # no args given, switch to any needy window
+                    wmctrl -i -a $id
+                exit 0
+            else
+                # match against our args and switch to first match
+                title="$(wmctrl -l | grep "^$id" | awk '{ $1=$2=$3=""; print $0 }')"
+                for filter in "$@"; do
+                    if [[ "$title" == *"$filter"* ]]; then
+                        # bingo!
+                        wmctrl -i -a $id
+                        exit 0
+                    fi
+                done
+            fi
+        fi
+    done
+}
+
+
 ######## End OAuth Functions ###########################################
 
 ######## YAD ###########################################################
@@ -325,11 +437,16 @@ T="--text="
 #COPY="--button=Copy:'xsel -b"
 DELETE="--button=Delete:2"
 CLOSE="--button=gtk-close:1"
+CANCEL="--button=gtk-cancel:1"
+OK="--button=OK:0"
 TEXT="\tBB Code - Image thumbnail Linked \n
 \tUse Ctrl-C/Ctrl-V to copy/paste the selection \n"
 ######## End YAD #######################################################
 
 ######## END FUNCTIONS #################################################
+#set -x
+settings_conf
+export -f run_browser
 
 if ! . "${BL_COMMON_LIBDIR}/yad-includes" 2> /dev/null; then
     echo "Error: Failed to source yad-includes in ${BL_COMMON_LIBDIR}" >&2
@@ -348,6 +465,8 @@ AUTH="Authorization: Client-ID ${ID}"           # in curl command
 AUTH_MODE="A"
 SCROT="${SCREENSHOT_FULL_COMMAND}"        
 
+### main
+export -f run_browser
 getargs "${@}"
 getimage "${FNAME}"
 
