@@ -226,22 +226,23 @@ function check_oauth2_client_secrets() {
 }
 
 function get_oauth2_client_secrets(){
+    #URL = "https://api.imgur.com/oauth2/addclient"
     MSG='
         Your CLIENT_ID and CLIENT_SECRET are not set.
         To register an imgur application:
-        
-        Select "OAuth 2 authorization without a callback URL" and fill out the form.
-          
-        Then, set the CLIENT_ID and CLIENT_SECRET in your settings.conf,
-        or paste them in the fields below...        
+
+        1: "Run browser"
+        2: Select "OAuth 2 authorization without a callback URL" and fill out the form.
+        3: Then, set the CLIENT_ID and CLIENT_SECRET in your settings.conf,
+           or paste them in the fields below, and click "OK"
     '
     DLG=$($DIALOG --form --image=dialog-question --image-on-top \
     --title="Get Imgur authorization" --text="${MSG}" \
     --fixed --center --borders=20 \
     --sticky --on-top \
     --width=650 \
-    --field="Run browser:BTN" '/bin/bash -c run_browser' "" \
     --field="Client ID:" --field="Client Secret:" "" "" \
+    --button="Run browser" '/bin/bash -c "run_browser addclient"' \
     ${OK} ${CANCEL}
     )
     ANS="$?"
@@ -299,22 +300,26 @@ function load_access_token() {
 }
 
 function acquire_access_token() {
-    local url params param_name param_value
+    local url params param_name param_value MSG
     read -d '' MSG <<EOF
 You need to authorize ${SCRIPT} to upload images.
-To grant access to this application visit the link below.
+
+To grant access to this application visit the link below, by clicking "Run browser".
+
+"https://api.imgur.com/oauth2/authorize?client_id=${ID}&amp;response_type=token"
 
 Then copy and paste the URL from your browser. 
 It should look like "https://imgur.com/#access_token=..."
 
 EOF
-LINK="https://api.imgur.com/oauth2/authorize?client_id=${ID}&response_type=token"
         
     RET=$($DIALOG --form --image=dialog-info --image-on-top \
     --title="Get Imgur authorization" --text="${MSG}" \
-    --fixed --center --borders=20 \
-    --width=650 \
-    --field="Copy link:" --field="Paste here: " "${LINK}" "" \
+    --fixed --sticky --on-top --center --borders=20 \
+    --width=650  \
+    --field="Paste here: " "" \
+    --button="Run browser:"'/bin/bash -c "run_browser token"' \
+    ${CANCEL}
     )
     ANS="$?"
     [[ ${ANS} == 1 ]] && exit 0
@@ -406,32 +411,48 @@ function fetch_account_info() {
 }
 
 function run_browser(){
-    API_URL="https://api.imgur.com/oauth2/addclient"
-    x-www-browser "${API_URL}" 2>/dev/null
+#    API_URL="https://api.imgur.com/oauth2/addclient"
+#LINK="https://api.imgur.com/oauth2/authorize?client_id=${ID}&response_type=token"
+
+    local API_CALL="$1"
+    [[ $API_CALL = "addclient" ]] && API_URL="https://api.imgur.com/oauth2/addclient"
+    [[ $API_CALL = "token" ]] && API_URL="https://api.imgur.com/oauth2/authorize?client_id=${ID}&response_type=token"
     
+    x-www-browser "${API_URL}" 2>/dev/null
+
+    switch_to_browser
+    #for id in $(wmctrl -l | awk '{ print $1 }'); do
+        ## filter only windows demanding attention 
+        #xprop -id $id | grep -q "_NET_WM_STATE_DEMANDS_ATTENTION"
+        #if [ $? -eq 0 ]; then
+            #if [ $# -eq 0 ]; then
+                ## no args given, switch to any needy window
+                    #wmctrl -i -a $id
+                #exit 0
+            #else
+                ## match against our args and switch to first match
+                #title="$(wmctrl -l | grep "^$id" | awk '{ $1=$2=$3=""; print $0 }')"
+                #for filter in "$@"; do
+                    #if [[ "$title" == *"$filter"* ]]; then
+                        ## bingo!
+                        #wmctrl -i -a $id
+                        #exit 0
+                    #fi
+                #done
+            #fi
+        #fi
+    #done
+}
+function switch_to_browser(){   # switch to new browser tab
     for id in $(wmctrl -l | awk '{ print $1 }'); do
         # filter only windows demanding attention 
         xprop -id $id | grep -q "_NET_WM_STATE_DEMANDS_ATTENTION"
         if [ $? -eq 0 ]; then
-            if [ $# -eq 0 ]; then
-                # no args given, switch to any needy window
-                    wmctrl -i -a $id
-                exit 0
-            else
-                # match against our args and switch to first match
-                title="$(wmctrl -l | grep "^$id" | awk '{ $1=$2=$3=""; print $0 }')"
-                for filter in "$@"; do
-                    if [[ "$title" == *"$filter"* ]]; then
-                        # bingo!
-                        wmctrl -i -a $id
-                        exit 0
-                    fi
-                done
-            fi
+            wmctrl -i -a $id
+            exit 0
         fi
     done
 }
-
 
 ######## End OAuth Functions ###########################################
 
@@ -457,6 +478,7 @@ AUTH_MODE="A"
 SCROT="${SCREENSHOT_FULL_COMMAND}"        
 
 export -f run_browser   # to be used as YAD button command
+export -f switch_to_browser # used by run_browser
 
 if ! . "${BL_COMMON_LIBDIR}/yad-includes" 2> /dev/null; then
     echo "Error: Failed to source yad-includes in ${BL_COMMON_LIBDIR}" >&2
