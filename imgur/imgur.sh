@@ -1,5 +1,6 @@
 #!/bin/bash
 #
+################### imgur.sh ###########################################
 # Take screenshots and upload them to Imgur.
 # This can be to an existing account, or anonymously.
 #
@@ -7,8 +8,6 @@
 #
 # The script returns BB-Code for the direct image link, and a linked thumbnail.
 # YAD dialogs are used for user interaction.
-#
-# imgur.sh by @damo December 2019
 #
 # Kudos to the writer of the script at https://github.com/jomo/imgur-screenshot,
 # which has provided most of the OAuth2 and Imgur API functions adapted here.
@@ -131,18 +130,19 @@ SCREENSHOT_WINDOW_COMMAND="scrot -u -b "
 SCREENSHOT_FULL_COMMAND="scrot "
 
 EOF
-
     fi
+source "${SETTINGS_FILE}"
 }
 ### File and Image functions #####################################################
 function getimage(){
+    [[ ${AUTH_MODE} = "A" ]] && ANON="Anonymous "
     if ! [[ -z ${DELAY} ]] && ! [[ ${SCROT} == "${SCREENSHOT_SELECT_COMMAND}" ]];then
         SCROT="${SCROT} -d ${DELAY} "
-        MSG="\n\tNo image file provided...\n\tProceed with screenshot?\n \
+        MSG="\n\tNo image file provided...\n\tProceed with ${ANON}screenshot?\n \
         \n\tThere will be a pause of ${DELAY}s, to select windows etc\n"
     else
         SCROT="${SCROT} -d 1 "   # need a pause so YAD dialog can leave the scene
-        MSG="\n\tNo image file provided...\n\tProceed with screenshot?\n"
+        MSG="\n\tNo image file provided...\n\tProceed with ${ANON}screenshot?\n"
     fi
 
     if [[ -z "$1" ]]; then
@@ -175,19 +175,25 @@ function getimage(){
 }
 
 function delete_image() {
-    response="$(curl --compressed -X DELETE  -fsSL --stderr - -H "${AUTH}" \
+    RESPONSE="$(curl --compressed -X DELETE  -fsSL --stderr - -H "${AUTH}" \
     "https://api.imgur.com/3/image/$1")"
     yad_common_args+=("--image=dialog-info")
     
-    if [ "${?}" -eq "0" ] && [ "$(jq -r .success <<< ${response})" = "true" ]; then
-        MSG="\n\tImage successfully deleted (delete hash: $1).\n"
+    if (( $? == 0 )) && [[ $(jq -r .success <<< ${RESPONSE}) == "true" ]]; then
+        MSG="\n\tUploaded image successfully deleted.\n\n\tdelete hash: $1\n"
         yad_info "${MSG}"
         yad_common_args+=("--image=0")
     else
-        MSG="\n\tThe image could not be deleted:\n\t${response}.\n"
+        MSG="\n\tThe image could not be deleted:\n\t${RESPONSE}.\n"
         yad_error "${MSG}"
     fi
     echo -e "${MSG}"
+    MSG="\n\tDelete local screenshot image?\n\n\t${IMG_FILE}\n"
+    yad_common_args+=("--image=dialog-question")
+    yad_question "${MSG}"
+    RET="$?"
+    yad_common_args+=("--image=0")
+    (( RET == 1 )) && exit || rm "${IMG_FILE}"
 }
 
 function take_screenshot() {
@@ -400,9 +406,8 @@ function fetch_account_info() {
 }
 
 function run_browser(){
-#    URL="$1"
     API_URL="https://api.imgur.com/oauth2/addclient"
-    x-www-browser "${API_URL}"
+    x-www-browser "${API_URL}" 2>/dev/null
     
     for id in $(wmctrl -l | awk '{ print $1 }'); do
         # filter only windows demanding attention 
@@ -434,19 +439,24 @@ function run_browser(){
 DIALOG="yad --center --borders=20 --window-icon=distributor-logo-bunsenlabs --fixed"
 TITLE="--title=Image BBCode"
 T="--text="
-#COPY="--button=Copy:'xsel -b"
 DELETE="--button=Delete:2"
 CLOSE="--button=gtk-close:1"
 CANCEL="--button=gtk-cancel:1"
 OK="--button=OK:0"
-TEXT="\tBB Code - Image thumbnail Linked \n
-\tUse Ctrl-C/Ctrl-V to copy/paste the selection \n"
 ######## End YAD #######################################################
-
 ######## END FUNCTIONS #################################################
-#set -x
-settings_conf
-export -f run_browser
+
+### main ###############################################################
+
+settings_conf   # set up settings.conf if necessary
+
+# set defaults, if login not specified in script args
+ID="${ANON_ID}"
+AUTH="Authorization: Client-ID ${ID}"           # in curl command
+AUTH_MODE="A"
+SCROT="${SCREENSHOT_FULL_COMMAND}"        
+
+export -f run_browser   # to be used as YAD button command
 
 if ! . "${BL_COMMON_LIBDIR}/yad-includes" 2> /dev/null; then
     echo "Error: Failed to source yad-includes in ${BL_COMMON_LIBDIR}" >&2
@@ -456,17 +466,9 @@ elif ! . "${SETTINGS_FILE}" 2> /dev/null; then
     exit 1
 elif ! . "${CREDENTIALS_FILE}" 2> /dev/null; then
     echo "Error: Failed to source ${CREDENTIALS_FILE} in ${USR_CFG_DIR}/" >&2
-    exit 1
+    load_access_token
 fi
 
-# set defaults, if login not specified in script args
-ID="${ANON_ID}"
-AUTH="Authorization: Client-ID ${ID}"           # in curl command
-AUTH_MODE="A"
-SCROT="${SCREENSHOT_FULL_COMMAND}"        
-
-### main
-export -f run_browser
 getargs "${@}"
 getimage "${FNAME}"
 
@@ -514,6 +516,9 @@ TEMP_THUMB="${HOME}/tmp/thumb.jpg"
 wget -q -O "${TEMP_THUMB}" "${IMG_THUMB}"
 
 # Display BB Codes for uploaded image
+TEXT="\tBB Code - Image thumbnail Linked \n
+\tUse Ctrl-C/Ctrl-V to copy/paste the selection \n"
+
 RET=$(${DIALOG} --image-on-top --image="${TEMP_THUMB}" "${TITLE}" \
     --form \
     --field='BB Code - Thumbnail linked':TXT "${BB_THUMB_LINKED}" \
