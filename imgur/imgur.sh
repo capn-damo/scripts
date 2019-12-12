@@ -6,6 +6,9 @@
 #
 # Credentials and access token for an account can be set up.
 #
+# Settings (settings.conf) and credentials (credentials.conf}) files are created in \
+# $HOME/.config/imgur/
+#
 # The script returns BB-Code for the direct image link, and a linked thumbnail.
 # YAD dialogs are used for user interaction.
 #
