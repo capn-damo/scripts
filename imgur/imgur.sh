@@ -32,18 +32,20 @@ read -d '' USAGE <<EOF
   the full desktop, as anonymous user
   
   -h, --help                   Show this help, exit
+  -l, --login                  Upload to Imgur account
   -c, --connect                Show connected Imgur account, exit
   -s, --select                 Take screenshot in select mode
   -w, --window                 Take screenshot in active window mode
   -f, --full                   Take screenshot in full desktop mode
-  -l, --login                  Upload to Imgur account
+  -d, --delay <seconds>        Delay in integer seconds, before taking screenshot
   -a, --album <album_title>    Upload to specified album
   -t, --title <image title>    Label uploaded image
-  -d, --delay <seconds>        Delay in integer seconds, before taking screenshot
   file  <filepath/filename>    Upload specified image. Overrides scrot options
   
   The final dialog displays forum BB-Code for both the direct image link and
   the linked image thumbnail. These can be copy/pasted as desired.
+
+  Options to delete uploaded and/or local screenshot images before exiting script.
 
 EOF
 
@@ -56,9 +58,16 @@ function getargs(){
     fi
     while [[ ${#} != 0 ]]; do
         case "$1" in
+            -h | --help)    echo -e "${USAGE}"
+                            exit 0
+                            ;;
             -l | --login)   ID="${CLIENT_ID}" # run as auth user; username set in settings.conf
                             AUTH="Authorization: Bearer ${ACCESS_TOKEN}"  # in curl command
                             AUTH_MODE="L"
+                            ;;
+            -c | --connect) load_access_token
+                            fetch_account_info
+                            exit 0
                             ;;
             -s | --select)  SCROT="${SCREENSHOT_SELECT_COMMAND}"
                             ;;
@@ -82,15 +91,8 @@ function getargs(){
             -t | --title)   IMG_TITLE="$2"
                             shift
                             ;;
-            -c | --connect) load_access_token
-                            fetch_account_info
-                            exit 0
-                            ;;
             file)           FNAME="$2"
                             shift 
-                            ;;
-            -h | --help)    echo -e "${USAGE}"
-                            exit 0
                             ;;
                          *) MSG="\n\tFailed to parse options\n\tExiting script...\n"
                             echo -e "${MSG}" >&2
@@ -467,7 +469,7 @@ OK="--button=OK:0"
 ######## END FUNCTIONS #################################################
 
 ### main ###############################################################
-set -x
+
 settings_conf   # set up settings.conf if necessary
 
 # set defaults, if login not specified in script args
