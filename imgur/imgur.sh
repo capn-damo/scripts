@@ -20,8 +20,8 @@ BL_COMMON_LIBDIR='/usr/lib/bunsen/common'
 USR_CFG_DIR="$HOME/.config/imgur"
 CREDENTIALS_FILE="${USR_CFG_DIR}/credentials.conf"
 SETTINGS_FILE="${USR_CFG_DIR}/settings.conf"
-
 SCRIPT=$(basename "$0")
+
 read -d '' USAGE <<EOF
   imgur.sh [option]... [file]...
 
@@ -212,6 +212,7 @@ function take_screenshot() {
 ### Adapted from https://github.com/jomo/imgur-screenshot ##############
 
 function check_oauth2_client_secrets() {
+#    if ! source "${SETTINGS_FILE}";then
     if [ -z "${CLIENT_ID}" ] || [ -z "${CLIENT_SECRET}" ]; then
         MSG='
             Your CLIENT_ID and CLIENT_SECRET are not set.
@@ -223,6 +224,7 @@ function check_oauth2_client_secrets() {
         RET=$?
         (( RET == 0 )) && get_oauth2_client_secrets || exit 1
     fi
+#    fi
 }
 
 function get_oauth2_client_secrets(){
@@ -242,13 +244,13 @@ function get_oauth2_client_secrets(){
     --sticky --on-top \
     --width=650 \
     --field="Client ID:" --field="Client Secret:" "" "" \
-    --button="Run browser" '/bin/bash -c "run_browser addclient"' \
+    --button="Run browser":"/bin/bash -c 'run_browser addclient'" \
     ${OK} ${CANCEL}
     )
     ANS="$?"
     [[ ${ANS} == 1 ]] && exit 0
-    C_ID="$(echo ${DLG} | awk -F '|' '{print $2}')" # 'pipe' separators
-    C_SECRET="$(echo ${DLG} | awk -F '|' '{print $3}')"
+    C_ID="$(echo ${DLG} | awk -F '|' '{print $1}')" # 'pipe' separators
+    C_SECRET="$(echo ${DLG} | awk -F '|' '{print $2}')"
     
     # check returned values
     if [[ -z "${C_ID}" ]] || (( ${#C_ID} != 15 )) || ! [[ ${C_ID} =~ ^[a-fA-F0-9]+$ ]];then
@@ -262,7 +264,6 @@ function get_oauth2_client_secrets(){
         ERR_DLG=$(${DIALOG} --text="${DLG_MSG}" --undecorated \
         --image="dialog-question" --button="Exit:1" ${OK})
         ANS=$?
-        echo "${ANS}"
         if (( ${ANS} == 0 )); then
             get_oauth2_client_secrets
         else
@@ -276,23 +277,36 @@ function get_oauth2_client_secrets(){
     C_SECRET_LINE="CLIENT_SECRET="\""${C_SECRET}\""
     sed -i "s/^CLIENT_ID.*/${C_ID_LINE}/" "${SETTINGS_FILE}"
     sed -i "s/^CLIENT_SECRET.*/${C_SECRET_LINE}/" "${SETTINGS_FILE}"
+    source "${SETTINGS_FILE}"
 }
 
 function load_access_token() {
     local CURRENT_TIME PREEMPTIVE_REFRESH_TIME EXPIRED
-    
     TOKEN_EXPIRE_TIME=0
+    ID="$1"     # CLIENT_ID
+
+    if [[ ${ID} == "${ANON_ID}" ]];then # user has used '-l' or '-c' args, without credentials
+        MSG="\n\tSorry, you need to Register an Imgur account\n\tbefore being able to log in!\n"
+        echo -e "${MSG}"
+        yad_error "${MSG}" #&& exit
+        get_oauth2_client_secrets
+    else
+        AUTH_MODE="L"
+    fi 
     # check for saved ACCESS_TOKEN and its expiration date
     if [[ -f "${CREDENTIALS_FILE}" ]] 2>/dev/null; then
         source "${CREDENTIALS_FILE}"
+    else
+        acquire_access_token
+        save_access_token
     fi
     if [[ ! -z "${REFRESH_TOKEN}" ]] 2>/dev/null; then    # token already set
         CURRENT_TIME="$(date +%s)"
         PREEMPTIVE_REFRESH_TIME="600" # 10 minutes
         EXPIRED=$((CURRENT_TIME > (TOKEN_EXPIRE_TIME - PREEMPTIVE_REFRESH_TIME)))
-    if [[ ${expired} == "1" ]]; then      # token expired
-        refresh_access_token
-    fi
+        if [[ ${expired} == "1" ]]; then      # token expired
+            refresh_access_token
+        fi
     else
         acquire_access_token
         save_access_token
@@ -312,30 +326,33 @@ Then copy and paste the URL from your browser.
 It should look like "https://imgur.com/#access_token=..."
 
 EOF
-        
+
+    # need to expand variable in dialog
+    CMD="$(printf '/bin/bash -c "run_browser token %s"' "${ID}")"
+    
     RET=$($DIALOG --form --image=dialog-info --image-on-top \
     --title="Get Imgur authorization" --text="${MSG}" \
     --fixed --sticky --on-top --center --borders=20 \
     --width=650  \
     --field="Paste here: " "" \
-    --button="Run browser:"'/bin/bash -c "run_browser token"' \
+    --button="Run browser":"${CMD}" \
     --button="Save token:0" ${CANCEL}
     )
     ANS="$?"
     [[ ${ANS} == 1 ]] && exit 0
-    URL="$(echo ${RET} | awk -F '|' '{print $2}')"
-
-    if [[ ! ${URL} =~ "access_token=" ]] 2>/dev/null; then
+    URL="${RET:0:-1}"   # cut 'pipe' char from end of string
+    if ! [[ ${URL} =~ "access_token=" ]] 2>/dev/null; then
         MSG="\n\tERROR: That URL doesn't look right, please start script again\n"
         yad_error "${MSG}"
         exit 1
     fi
-    URL="$(echo "${URL}" | cut -d "#" -f 2-)"
-    PARAMS=("${URL//&/ }")
+    URL="$(echo "${URL}" | cut -d "#" -f 2-)"   # remove leading 'https://imgur.com/#'
+    PARAMS=(${URL//&/ })                        # add remaining sections to array
     
     for param in "${PARAMS[@]}"; do
         PARAM_NAME="$(echo "${param}" | cut -d "=" -f 1)"
         PARAM_VALUE="$(echo "${param}" | cut -d "=" -f 2-)"
+        
         case "${PARAM_NAME}" in
             access_token)   ACCESS_TOKEN="${PARAM_VALUE}"
                             ;;
@@ -415,9 +432,9 @@ function fetch_account_info() {
 
 function run_browser(){     # run browser with API url, and switch to attention-seeking browser tab
     local API_CALL="$1"     # function called from button in dialog
-    [[ $API_CALL = "addclient" ]] && API_URL="https://api.imgur.com/oauth2/addclient"
-    [[ $API_CALL = "token" ]] && API_URL="https://api.imgur.com/oauth2/authorize?client_id=${ID}&response_type=token"
-    
+    ID_ARG="$2"
+    [[ ${API_CALL} = "addclient" ]] && API_URL="https://api.imgur.com/oauth2/addclient"
+    [[ ${API_CALL} = "token" ]] && API_URL="https://api.imgur.com/oauth2/authorize?client_id=${ID_ARG}&response_type=token"
     x-www-browser "${API_URL}" 2>/dev/null
     switch_to_browser
 }
@@ -426,7 +443,7 @@ function switch_to_browser(){   # switch to new browser tab
     for id in $(wmctrl -l | awk '{ print $1 }'); do
         # filter only windows demanding attention 
         xprop -id $id | grep -q "_NET_WM_STATE_DEMANDS_ATTENTION"
-        if (( $? ==q 0 )); then
+        if (( $? == 0 )); then
             wmctrl -i -a $id
             exit 0
         fi
@@ -447,7 +464,7 @@ OK="--button=OK:0"
 ######## END FUNCTIONS #################################################
 
 ### main ###############################################################
-
+set -x
 settings_conf   # set up settings.conf if necessary
 
 # set defaults, if login not specified in script args
@@ -467,7 +484,11 @@ elif ! . "${SETTINGS_FILE}" 2> /dev/null; then
     exit 1
 elif ! . "${CREDENTIALS_FILE}" 2> /dev/null; then
     echo "Error: Failed to source ${CREDENTIALS_FILE} in ${USR_CFG_DIR}/" >&2
-    load_access_token
+    if ! [[ -z "${CLIENT_ID}" ]];then
+        load_access_token "${CLIENT_ID}"
+    else
+        load_access_token "${ANON_ID}"
+    fi
 fi
 
 getargs "${@}"
