@@ -308,7 +308,7 @@ function load_access_token() {
     if [[ -f "${CREDENTIALS_FILE}" ]] 2>/dev/null; then
         source "${CREDENTIALS_FILE}"
     else
-        acquire_access_token
+        acquire_access_token "${CLIENT_ID}"
         save_access_token
     fi
     if [[ ! -z "${REFRESH_TOKEN}" ]] 2>/dev/null; then    # token already set
@@ -319,13 +319,14 @@ function load_access_token() {
             refresh_access_token
         fi
     else
-        acquire_access_token
+        acquire_access_token "${CLIENT_ID}"
         save_access_token
     fi
 }
 
 function acquire_access_token() {
     local URL PARAMS PARAM_NAME PARAM_VALUE MSG
+    local ID="$1"
     read -d '' MSG <<EOF
 You need to authorize ${SCRIPT} to upload images.
 
@@ -379,6 +380,7 @@ EOF
         exit 1
     fi
     save_access_token
+    AUTH="Authorization: Bearer ${ACCESS_TOKEN}"
 }
 
 function save_access_token() {
@@ -446,7 +448,7 @@ function run_browser(){     # run browser with API url, and switch to attention-
     ID_ARG="$2"
     [[ ${API_CALL} = "addclient" ]] && API_URL="https://api.imgur.com/oauth2/addclient"
     [[ ${API_CALL} = "token" ]] && API_URL="https://api.imgur.com/oauth2/authorize?client_id=${ID_ARG}&response_type=token"
-    x-www-browser "${API_URL}" 2>/dev/null
+    x-www-browser --private-window "${API_URL}" 2>/dev/null
     switch_to_browser
 }
 
