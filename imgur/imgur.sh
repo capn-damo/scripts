@@ -65,7 +65,9 @@ function getargs(){
                             AUTH="Authorization: Bearer ${ACCESS_TOKEN}"  # in curl command
                             AUTH_MODE="L"
                             ;;
-            -c | --connect) load_access_token
+            -c | --connect) ID="${CLIENT_ID}"
+                            AUTH_MODE="L"
+                            load_access_token "${ID}"
                             fetch_account_info
                             exit 0
                             ;;
@@ -140,6 +142,7 @@ source "${SETTINGS_FILE}"
 }
 ### File and Image functions #####################################################
 function getimage(){
+echo "arg= $1"
     [[ ${AUTH_MODE} = "A" ]] && ANON="Anonymous "
     if ! [[ -z ${DELAY} ]] 2>/dev/null && ! [[ ${SCROT} == "${SCREENSHOT_SELECT_COMMAND}" ]] 2>/dev/null;then
         SCROT="${SCROT} -d ${DELAY} "
@@ -155,10 +158,9 @@ function getimage(){
         yad_question "${MSG}"
         RET="$?"
         yad_common_args+=("--image=0")
-       
         if (( RET == 1 ));then
             exit 0
-        elif [[ ${SCROT} == "${SCREENSHOT_SELECT_COMMAND}" ]];then
+        elif (( RET == 0 )) && [[ ${SCROT} == *"-s"* ]];then    # scrot command contains "-s" to select area
             yad_info "\n\tDrag cursor to select area for screenshot\n"
         fi
         # new filename with date
@@ -183,7 +185,6 @@ function delete_image() {
     RESPONSE="$(curl --compressed -X DELETE  -fsSL --stderr - -H "${AUTH}" \
     "https://api.imgur.com/3/image/$1")"
     yad_common_args+=("--image=dialog-info")
-    
     if (( $? == 0 )) && [[ $(jq -r .success <<< ${RESPONSE}) == "true" ]]; then
         MSG="\n\tUploaded image successfully deleted.\n\n\tdelete hash: $1\n"
         yad_info "${MSG}"
@@ -193,12 +194,17 @@ function delete_image() {
         yad_error "${MSG}"
     fi
     echo -e "${MSG}"
+    delete_local
+}
+
+function delete_local(){
     MSG="\n\tDelete local screenshot image?\n\n\t${IMG_FILE}\n"
     yad_common_args+=("--image=dialog-question")
     yad_question "${MSG}"
     RET="$?"
     yad_common_args+=("--image=0")
-    (( RET == 1 )) && exit || rm "${IMG_FILE}"
+    (( RET == 1 )) && exit || rm "${IMG_FILE}"   
+    exit 0 
 }
 
 function take_screenshot() {
@@ -469,7 +475,7 @@ OK="--button=OK:0"
 ######## END FUNCTIONS #################################################
 
 ### main ###############################################################
-
+#set -x
 settings_conf   # set up settings.conf if necessary
 
 # set defaults, if login not specified in script args
@@ -489,9 +495,9 @@ elif ! . "${SETTINGS_FILE}" 2> /dev/null; then
     exit 1
 elif ! . "${CREDENTIALS_FILE}" 2> /dev/null; then
     echo "Error: Failed to source ${CREDENTIALS_FILE} in ${USR_CFG_DIR}/" >&2
-    if ! [[ -z "${CLIENT_ID}" ]];then
+    if ! [[ -z "${CLIENT_ID}" ]] && [[ ${AUTH_MODE} == "L" ]];then
         load_access_token "${CLIENT_ID}"
-    else
+    elif ! [[ -z "${CLIENT_ID}" ]] && [[ ${AUTH_MODE} == "A" ]];then
         load_access_token "${ANON_ID}"
     fi
 fi
@@ -554,6 +560,8 @@ RET=$(${DIALOG} --image-on-top --image="${TEMP_THUMB}" "${TITLE}" \
 RET="$?"
 if (( RET == 2 ));then
     delete_image "${DEL_HASH}"
+else 
+    delete_local
 fi
 
 rm "${TEMP_THUMB}"
