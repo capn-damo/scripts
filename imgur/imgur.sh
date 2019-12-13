@@ -142,7 +142,6 @@ source "${SETTINGS_FILE}"
 }
 ### File and Image functions #####################################################
 function getimage(){
-echo "arg= $1"
     [[ ${AUTH_MODE} = "A" ]] && ANON="Anonymous "
     if ! [[ -z ${DELAY} ]] 2>/dev/null && ! [[ ${SCROT} == "${SCREENSHOT_SELECT_COMMAND}" ]] 2>/dev/null;then
         SCROT="${SCROT} -d ${DELAY} "
@@ -411,7 +410,6 @@ function refresh_access_token() {
     if ! jq -re .access_token >/dev/null <<<"${RESPONSE}"; then
         # server did not send access_token
         echo -e "\nError: Something is wrong with your credentials:"
-        echo "${RESPONSE}"
         exit 1
     fi
     
@@ -448,7 +446,7 @@ function run_browser(){     # run browser with API url, and switch to attention-
     ID_ARG="$2"
     [[ ${API_CALL} = "addclient" ]] && API_URL="https://api.imgur.com/oauth2/addclient"
     [[ ${API_CALL} = "token" ]] && API_URL="https://api.imgur.com/oauth2/authorize?client_id=${ID_ARG}&response_type=token"
-    x-www-browser --private-window "${API_URL}" 2>/dev/null
+    x-www-browser "${API_URL}" 2>/dev/null
     switch_to_browser
 }
 
