@@ -40,7 +40,7 @@ read -d '' USAGE <<EOF
   -d, --delay <seconds>        Delay in integer seconds, before taking screenshot
   -a, --album <album_title>    Upload to specified album
   -t, --title <image title>    Label uploaded image
-  file  <filepath/filename>    Upload specified image. Overrides scrot options
+  --file  <filepath/filename>    Upload specified image. Overrides scrot options
   
   The final dialog displays forum BB-Code for both the direct image link and
   the linked image thumbnail. These can be copy/pasted as desired.
@@ -93,8 +93,9 @@ function getargs(){
             -t | --title)   IMG_TITLE="$2"
                             shift
                             ;;
-            file)           FNAME="$2"
-                            shift 
+            --file)         FNAME="$2"
+                            shift
+                            F_FLAG=1
                             ;;
                          *) MSG="\n\tFailed to parse options\n\tExiting script...\n"
                             echo -e "${MSG}" >&2
@@ -197,13 +198,22 @@ function delete_image() {
 }
 
 function delete_local(){
-    MSG="\n\tDelete local screenshot image?\n\n\t${IMG_FILE}\n"
+    if (( F_FLAG == 1));then    # local file was uploaded
+        MSG="\n\tMove local uploaded image to 'Trash'?\n\n\t${IMG_FILE}\n"
+    else
+        MSG="\n\tMove local screenshot image to 'Trash'?\n\n\t${IMG_FILE}\n"
+    fi
     yad_common_args+=("--image=dialog-question")
     yad_question "${MSG}"
     RET="$?"
     yad_common_args+=("--image=0")
-    (( RET == 1 )) && exit || rm "${IMG_FILE}"   
-    exit 0 
+    if (( RET == 0 )); then
+        if type "/usr/bin/gio" > /dev/null;then # 'gio' is part of 'gvfs' package
+            gio trash "${IMG_FILE}"
+        else
+            rm "${IMG_FILE}"
+        fi
+    fi
 }
 
 function take_screenshot() {
@@ -410,6 +420,7 @@ function refresh_access_token() {
     if ! jq -re .access_token >/dev/null <<<"${RESPONSE}"; then
         # server did not send access_token
         echo -e "\nError: Something is wrong with your credentials:"
+        echo "${RESPONSE}"
         exit 1
     fi
     
@@ -482,6 +493,7 @@ settings_conf   # set up settings.conf if necessary
 ID="${ANON_ID}"
 AUTH="Authorization: Client-ID ${ID}"           # in curl command
 AUTH_MODE="A"
+F_FLAG=0        # Flag for local image file upload
 SCROT="${SCREENSHOT_FULL_COMMAND}"        
 
 export -f run_browser   # to be used as YAD button command
@@ -560,7 +572,7 @@ RET=$(${DIALOG} --image-on-top --image="${TEMP_THUMB}" "${TITLE}" \
 RET="$?"
 if (( RET == 2 ));then
     delete_image "${DEL_HASH}"
-else 
+else
     delete_local
 fi
 
