@@ -24,7 +24,15 @@ USR_CFG_DIR="$HOME/.config/imgur"
 CREDENTIALS_FILE="${USR_CFG_DIR}/credentials.conf"
 SETTINGS_FILE="${USR_CFG_DIR}/settings.conf"
 SCRIPT=$(basename "$0")
-
+#### YAD ###
+DIALOG="yad --center --borders=20 --window-icon=distributor-logo-bunsenlabs --fixed"
+TITLE="--title=Image BBCode"
+T="--text="
+DELETE="--button=Delete:2"
+CLOSE="--button=gtk-close:1"
+CANCEL="--button=gtk-cancel:1"
+OK="--button=OK:0"
+### USAGE ###
 read -d '' USAGE <<EOF
   imgur.sh [option]... [file]...
 
@@ -49,7 +57,8 @@ read -d '' USAGE <<EOF
 
 EOF
 
-### Get script args ####################################################
+### FUNCTIONS  #########################################################
+### Get script args ###
 function getargs(){
     if (( $# == 0 ));then               # no args, so run with anonymous, full desktop scrot
         echo -e "\n\tAnonymous upload\n"
@@ -58,7 +67,7 @@ function getargs(){
     fi
     while [[ ${#} != 0 ]]; do
         case "$1" in
-            -h | --help)    echo -e "${USAGE}"
+            -h | --help)    echo -e "\n${USAGE}\n"
                             exit 0
                             ;;
             -l | --login)   ID="${CLIENT_ID}" # run as auth user; username set in settings.conf
@@ -106,7 +115,7 @@ function getargs(){
         shift
     done
 }
-### Initialize settings.conf config  ###################################
+### Initialize settings.conf config  ###
 function settings_conf(){
     ! [[ -d "$USR_CFG_DIR" ]] && mkdir -p "$USR_CFG_DIR" 2>/dev/null
 
@@ -141,7 +150,7 @@ EOF
     fi
 source "${SETTINGS_FILE}"
 }
-### File and Image functions #####################################################
+### File and Image functions ###
 function getimage(){
     [[ ${AUTH_MODE} = "A" ]] && ANON="Anonymous "
     if ! [[ -z ${DELAY} ]] 2>/dev/null && ! [[ ${SCROT} == "${SCREENSHOT_SELECT_COMMAND}" ]] 2>/dev/null;then
@@ -226,7 +235,7 @@ function take_screenshot() {
         exit 1
     fi
 }
-####### END Image Functions ############################################
+### END Image Functions ################################################
 
 ### OAuth Credentials Functions ########################################
 ### Adapted from https://github.com/jomo/imgur-screenshot ##############
@@ -472,110 +481,103 @@ function switch_to_browser(){   # switch to new browser tab
     done
 }
 
-######## End OAuth Functions ###########################################
+#### End OAuth Functions ###
 
-######## YAD ###########################################################
-DIALOG="yad --center --borders=20 --window-icon=distributor-logo-bunsenlabs --fixed"
-TITLE="--title=Image BBCode"
-T="--text="
-DELETE="--button=Delete:2"
-CLOSE="--button=gtk-close:1"
-CANCEL="--button=gtk-cancel:1"
-OK="--button=OK:0"
-######## End YAD #######################################################
-######## END FUNCTIONS #################################################
+### main ###
+function main(){
+    #set -x
+    settings_conf   # set up settings.conf if necessary
 
-### main ###############################################################
-#set -x
-settings_conf   # set up settings.conf if necessary
+    # set defaults, if login not specified in script args
+    ID="${ANON_ID}"
+    AUTH="Authorization: Client-ID ${ID}"           # in curl command
+    AUTH_MODE="A"
+    F_FLAG=0        # Flag for local image file upload
+    SCROT="${SCREENSHOT_FULL_COMMAND}"        
 
-# set defaults, if login not specified in script args
-ID="${ANON_ID}"
-AUTH="Authorization: Client-ID ${ID}"           # in curl command
-AUTH_MODE="A"
-F_FLAG=0        # Flag for local image file upload
-SCROT="${SCREENSHOT_FULL_COMMAND}"        
-
-export -f run_browser   # to be used as YAD button command
-export -f switch_to_browser # used by run_browser
-
-if ! . "${BL_COMMON_LIBDIR}/yad-includes" 2> /dev/null; then
-    echo "Error: Failed to source yad-includes in ${BL_COMMON_LIBDIR}" >&2
-    exit 1
-elif ! . "${SETTINGS_FILE}" 2> /dev/null; then
-    echo "Error: Failed to source ${SETTINGS_FILE} in ${USR_CFG_DIR}/" >&2
-    exit 1
-elif ! . "${CREDENTIALS_FILE}" 2> /dev/null; then
-    echo "Error: Failed to source ${CREDENTIALS_FILE} in ${USR_CFG_DIR}/" >&2
-    if ! [[ -z "${CLIENT_ID}" ]] && [[ ${AUTH_MODE} == "L" ]];then
-        load_access_token "${CLIENT_ID}"
-    elif ! [[ -z "${CLIENT_ID}" ]] && [[ ${AUTH_MODE} == "A" ]];then
-        load_access_token "${ANON_ID}"
-    fi
-fi
-
-getargs "${@}"
-getimage "${FNAME}"
-
-if [[ "${AUTH_MODE}" = "L" ]];then        # logged in as user
-    check_oauth2_client_secrets
-    load_access_token
-    if ! [[ -z "${ALBUM_TITLE}" ]];then   # upload to specified album
-        ## get album id
-        response=$(curl -sH --location --request GET "https://api.imgur.com/3/account/${USER_NAME}/albums/ids" \
-        --header "${AUTH}")
-        declare -a ids 
-        ids+=($(jq -r '.data[]' <<< "${response}"))
+    export -f run_browser   # to be used as YAD button command
+    export -f switch_to_browser # used by run_browser
     
-        # match album ids with chosen album title
-        for (( i=0;i<=${#ids[@]};i++ ));do
-            ID="${ids[$i]}"
-            response=$(curl -sH --location --request GET "https://api.imgur.com/3/account/${USER_NAME}/album/${ID}" --header "${AUTH}")
-    
-            title="$(jq -r '.data.title' <<< "${response}")"
-            if [[ "${title}" = "${ALBUM_TITLE}" ]];then
-                ALBUM_ID="${ids[$i]}"
-            else
-                continue
-            fi
-        done
-        response="$(curl  -sH "${AUTH}" -F "image=@\"${IMG_FILE}\"" -F "title=${IMG_TITLE}" -F "album=${ALBUM_ID}" https://api.imgur.com/3/image)"
-    else    # don't upload to an album
-        response="$(curl  -sH "${AUTH}" -F "image=@\"${IMG_FILE}\"" -F "title=${IMG_TITLE}" https://api.imgur.com/3/image)"
+    if ! . "${BL_COMMON_LIBDIR}/yad-includes" 2> /dev/null; then
+        echo "Error: Failed to source yad-includes in ${BL_COMMON_LIBDIR}" >&2
+        exit 1
+    elif ! . "${SETTINGS_FILE}" 2> /dev/null; then
+        echo "Error: Failed to source ${SETTINGS_FILE} in ${USR_CFG_DIR}/" >&2
+        exit 1
+    elif ! . "${CREDENTIALS_FILE}" 2> /dev/null; then
+        echo "Error: Failed to source ${CREDENTIALS_FILE} in ${USR_CFG_DIR}/" >&2
+        if ! [[ -z "${CLIENT_ID}" ]] && [[ ${AUTH_MODE} == "L" ]];then
+            load_access_token "${CLIENT_ID}"
+        elif ! [[ -z "${CLIENT_ID}" ]] && [[ ${AUTH_MODE} == "A" ]];then
+            load_access_token "${ANON_ID}"
+        fi
     fi
-else    # anonymous upload
-    response="$(curl -sH "${AUTH}" -F "image=@\"${IMG_FILE}\"" -F "title=${IMG_TITLE}" https://api.imgur.com/3/image)"
-fi
-DEL_HASH="$(jq -r '.data | .deletehash' <<< "${response}")"
-IMG_LINK="$(jq -r '.data.link' <<< "${response}")"
-IMG_F="${IMG_LINK%.*}"
-IMG_EXT="${IMG_LINK##*.}"
-IMG_THUMB="${IMG_F}t.${IMG_EXT}"
+    
+    getargs "${@}"
+    getimage "${FNAME}"
+    
+    if [[ "${AUTH_MODE}" = "L" ]];then        # logged in as user
+        check_oauth2_client_secrets
+        load_access_token
+        if ! [[ -z "${ALBUM_TITLE}" ]];then   # upload to specified album
+            ## get album id
+            response=$(curl -sH --location --request GET "https://api.imgur.com/3/account/${USER_NAME}/albums/ids" \
+            --header "${AUTH}")
+            declare -a ids 
+            ids+=($(jq -r '.data[]' <<< "${response}"))
+        
+            # match album ids with chosen album title
+            for (( i=0;i<=${#ids[@]};i++ ));do
+                ID="${ids[$i]}"
+                response=$(curl -sH --location --request GET "https://api.imgur.com/3/account/${USER_NAME}/album/${ID}" --header "${AUTH}")
+        
+                title="$(jq -r '.data.title' <<< "${response}")"
+                if [[ "${title}" = "${ALBUM_TITLE}" ]];then
+                    ALBUM_ID="${ids[$i]}"
+                else
+                    continue
+                fi
+            done
+            response="$(curl  -sH "${AUTH}" -F "image=@\"${IMG_FILE}\"" -F "title=${IMG_TITLE}" -F "album=${ALBUM_ID}" https://api.imgur.com/3/image)"
+        else    # don't upload to an album
+            response="$(curl  -sH "${AUTH}" -F "image=@\"${IMG_FILE}\"" -F "title=${IMG_TITLE}" https://api.imgur.com/3/image)"
+        fi
+    else    # anonymous upload
+        response="$(curl -sH "${AUTH}" -F "image=@\"${IMG_FILE}\"" -F "title=${IMG_TITLE}" https://api.imgur.com/3/image)"
+    fi
+    DEL_HASH="$(jq -r '.data | .deletehash' <<< "${response}")"
+    IMG_LINK="$(jq -r '.data.link' <<< "${response}")"
+    IMG_F="${IMG_LINK%.*}"
+    IMG_EXT="${IMG_LINK##*.}"
+    IMG_THUMB="${IMG_F}t.${IMG_EXT}"
+    
+    BB_DIRECT="[img]${IMG_LINK}[/img]"
+    BB_THUMB_LINKED="[url=${IMG_LINK}][img]${IMG_THUMB}[/img][/url]"
+    
+    # download image thumbnail, for display in YAD dialog
+    TEMP_THUMB="${HOME}/tmp/thumb.jpg"
+    wget -q -O "${TEMP_THUMB}" "${IMG_THUMB}"
+    
+    # Display BB Codes for uploaded image
+    TEXT="\tBB Code - Image thumbnail Linked \n
+    \tUse Ctrl-C/Ctrl-V to copy/paste the selection \n"
+    
+    RET=$(${DIALOG} --image-on-top --image="${TEMP_THUMB}" "${TITLE}" \
+        --form \
+        --field='BB Code - Thumbnail linked':TXT "${BB_THUMB_LINKED}" \
+        --field='BB Code - Direct image link':TXT "${BB_DIRECT}" \
+        ${DELETE} ${CLOSE}  --width=680 ${T}"${TEXT}" --text-align=left)
+    
+    RET="$?"
+    if (( RET == 2 ));then
+        delete_image "${DEL_HASH}"
+    else
+        delete_local
+    fi
+    
+    rm "${TEMP_THUMB}"
+}
+### END FUNCTIONS ######################################################
 
-BB_DIRECT="[img]${IMG_LINK}[/img]"
-BB_THUMB_LINKED="[url=${IMG_LINK}][img]${IMG_THUMB}[/img][/url]"
-
-# download image thumbnail, for display in YAD dialog
-TEMP_THUMB="${HOME}/tmp/thumb.jpg"
-wget -q -O "${TEMP_THUMB}" "${IMG_THUMB}"
-
-# Display BB Codes for uploaded image
-TEXT="\tBB Code - Image thumbnail Linked \n
-\tUse Ctrl-C/Ctrl-V to copy/paste the selection \n"
-
-RET=$(${DIALOG} --image-on-top --image="${TEMP_THUMB}" "${TITLE}" \
-    --form \
-    --field='BB Code - Thumbnail linked':TXT "${BB_THUMB_LINKED}" \
-    --field='BB Code - Direct image link':TXT "${BB_DIRECT}" \
-    ${DELETE} ${CLOSE}  --width=680 ${T}"${TEXT}" --text-align=left)
-
-RET="$?"
-if (( RET == 2 ));then
-    delete_image "${DEL_HASH}"
-else
-    delete_local
-fi
-
-rm "${TEMP_THUMB}"
-
+main "$@"
 exit
