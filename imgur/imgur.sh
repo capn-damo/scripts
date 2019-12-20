@@ -31,7 +31,7 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ########################################################################
 #
-### REQUIRES:  yad, xprop, wmctrl, wget, curl, scrot, gio(in gvfs package)
+### REQUIRES:  yad, jq, xprop, wmctrl, wget, curl, scrot, gio(in gvfs package)
 #
 ########################################################################
 BL_COMMON_LIBDIR='/usr/lib/bunsen/common'
@@ -218,8 +218,12 @@ function getimage(){
         if (( ret == 1 ));then
             exit 0
         elif (( ret == 0 )) && [[ ${SCROT} == *"-s"* ]];then    # scrot command contains "-s" to select area
+            yad_common_args+=("--image=dialog-info")
             yad_info "\n\tDrag cursor to select area for screenshot\n"
+        elif (( ret == 0 )) && [[ ${SCROT} == *"-u"* ]];then            # scrot command contains "-u" 
+            yad_info "\n\tSelect window to be Active, then click 'OK'\n" #for active window
         fi
+        yad_common_args+=("--image=0")
         # new filename with date
         img_file="$(date +"${FILE_NAME}.${FILE_FORMAT}")"
         img_file="${FILE_DIR}/${img_file}"
@@ -243,9 +247,9 @@ function delete_image() {
     
     response="$(curl --compressed -X DELETE  -fsSL --stderr - -H "${AUTH}" \
     "https://api.imgur.com/3/image/$1")"
-    yad_common_args+=("--image=dialog-info")
     if (( $? == 0 )) && [[ $(jq -r .success <<< ${response}) == "true" ]]; then
         message="\n\tUploaded image successfully deleted.\n\n\tdelete hash: $1\n"
+        yad_common_args+=("--image=dialog-info")
         yad_info "${message}"
         yad_common_args+=("--image=0")
     else
@@ -506,6 +510,7 @@ function refresh_access_token() {
 
 function fetch_account_info() {
     local response username message
+    yad_common_args+=("--image=dialog-info")
     
     response="$(curl -sH "Authorization: Bearer ${ACCESS_TOKEN}" https://api.imgur.com/3/account/me)"
     if (( $? == 0 )) && [[ $(jq -r .success <<<"${response}") = "true" ]]; then
@@ -513,16 +518,13 @@ function fetch_account_info() {
         message="\n\tLogged in as ${username}. \
         \n\n\thttps://${username,,}.imgur.com\n"
         echo -e "${message}"
-        yad_common_args+=("--image=dialog-info")
         yad_info "${message}"
-        yad_common_args+=("--image=0")
     else
         message="\n\tFailed to fetch info: ${response}\n"
         echo -e "${message}"
-        yad_common_args+=("--image=dialog-info")
         yad_info "${message}"
-        yad_common_args+=("--image=0")
     fi
+    yad_common_args+=("--image=0")
 }
 
 function run_browser(){     # run browser with API url, and switch to attention-seeking browser tab
