@@ -39,7 +39,7 @@ USR_CFG_DIR="$HOME/.config/imgur"
 CREDENTIALS_FILE="${USR_CFG_DIR}/credentials.conf"
 SETTINGS_FILE="${USR_CFG_DIR}/settings.conf"
 SCRIPT=$(basename "$0")
-IMG_VIEWER="x-www-browser" && export IMG_VIEWER   # used by show_image()
+#IMG_VIEWER="x-www-browser" && export IMG_VIEWER   # used by show_image()
 
 #### YAD ###
 DIALOG="yad --center --borders=20 --window-icon=distributor-logo-bunsenlabs --fixed"
@@ -140,7 +140,8 @@ function getargs(){
 function check_required(){
     local message
     declare -a BAD_APPS # array to hold missing commands
-    
+    APPS+=( "${IMG_VIEWER}" )
+
     for app in "${APPS[@]}";do
         if type "${app}" >/dev/null 2>&1;then
             continue
@@ -178,13 +179,14 @@ CLIENT_SECRET=""
 USER_NAME=""
 ALBUM_TITLE=""
 IMGUR_ICON_PATH=""
-IMG_VIEWER=""
+IMG_VIEWER="bl-image-viewer"
 
 # Local file settings
 # User directory to save image:
 FILE_DIR="$(xdg-user-dir PICTURES)"
 FILE_NAME="imgur-%Y_%m_%d-%H:%M:%S"
 # possible formats are png | jpg | tiff | gif
+# Max size is 20MB; PNG > 5MB will be converted to JPEG
 FILE_FORMAT="png"   
 
 # Screenshot scrot commands
@@ -296,8 +298,8 @@ function take_screenshot() {
 
 function show_image(){  # display image using viewer set in settings.conf
     # if image viewer not set, then default to browser
-    [[ -z "${VIEWER}" ]] && VIEWER="x-www-browser"
-    ${VIEWER} "$img_link"
+    [[ -z "${IMG_VIEWER}" ]] && IMG_VIEWER="x-www-browser"
+    ${IMG_VIEWER} "$img_link"
     switch_to_active
 }
 ### END Image Functions ################################################
@@ -565,8 +567,9 @@ function main(){
     export -f run_browser   # to be used as YAD button command
     export -f switch_to_active # switch to active window
     export -f show_image        # to be used as YAD button command
-    VIEWER=$(grep -oP '(?<=VIEWER=").*(?=")' "${SETTINGS_FILE}")
-    export VIEWER               # for use by show_image()
+    
+    IMG_VIEWER=$(grep -oP '(?<=VIEWER=").*(?=")' "${SETTINGS_FILE}")
+    [[ -z "$IMG_VIEWER" ]] && export IMG_VIEWER="bl-image-viewer"   # fallback to default. Used by show_image()
 
     if ! . "${BL_COMMON_LIBDIR}/yad-includes" 2> /dev/null; then
         echo "Error: Failed to source yad-includes in ${BL_COMMON_LIBDIR}" >&2
