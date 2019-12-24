@@ -1,0 +1,216 @@
+#!/bin/bash
+##
+## screenshooter
+
+BL_YAD_INCLUDES='/usr/lib/bunsen/common/yad-includes'
+SCRIPT=$(basename "$0")
+USR_CFG_DIR="$HOME/.config/screenshooter"
+SETTINGS_FILE="${USR_CFG_DIR}/screenshooter.conf"
+
+DIALOG="yad --center --undecorated --borders=20 --window-icon=distributor-logo-bunsenlabs --fixed"
+DIALOGDEC="yad --center  --borders=20 --window-icon=distributor-logo-bunsenlabs"
+TITLE="BLOB Configuration Manager"
+T="--text="
+OK="--button=OK:0"
+CANCEL="--button=gtk-cancel:1"
+EXIT="--button=gtk-quit:1"
+CLOSE="--button=gtk-close:1"
+
+ICON="/usr/share/icons/gnome/256x256/devices/video-display.png"
+
+text='
+    <big><b>Screenshooter</b></big> for Bunsenlabs
+    
+'
+### Initialize settings.conf config  ###
+function settings_conf(){
+    ! [[ -d "${USR_CFG_DIR}" ]] && mkdir -p "${USR_CFG_DIR}" 2>/dev/null
+
+    if ! [[ -f "${SETTINGS_FILE}" ]] 2>/dev/null;then
+        touch "${SETTINGS_FILE}" && chmod 600 "${SETTINGS_FILE}"
+        cat <<EOF > "${SETTINGS_FILE}"
+### SCREENSHOOTER PREFERENCES ####
+### Read by ${SCRIPT} ###################
+IMAGE_HOST="imgur"
+HOSTS_LIST="imgbb imgur scrot.cloud"
+
+EOF
+    fi
+source "${SETTINGS_FILE}"
+}
+
+function run_imgbb(){
+    declare local options
+    local opt
+    if [[ ${area} ]];then
+        opt="${area}"
+    else
+        opt=" -f"
+    fi
+    options="${options} ${opt}"
+    
+    [[ "${delay}" ]] && options="${options} -d ${delay}"
+    
+    host_cmd="imgbb ${options}" #&& exit
+    ${host_cmd}
+}
+
+function run_imgur(){
+    declare local options
+    local opt
+#set -x
+    
+    ${DIALOGDEC} --on-top ${T}"Login or Anonymous upload?" \
+            --button="Log In":0 --button="Anonymous":2 ${CANCEL} 2>/dev/null
+    ret=$?
+    if (( ${ret} == 0 ));then
+        options=" -l"
+    elif (( ${ret} == 2 ));then
+        options=""
+    else
+        exit
+    fi
+
+    if [[ ${area} ]];then
+        opt="${area}"
+    else
+        opt=" -f"
+    fi
+    options="${options} ${opt}"
+    
+    [[ "${delay}" ]] && options="${options} -d ${delay}"
+
+    host_cmd="imgur ${options}" #&& exit
+    ${host_cmd} 
+}
+
+function run_scrotcloud(){
+    if [[ -z "${SCROTCLOUD_USER}" ]];then
+        dlg=$(${DIALOGDEC} --entry ${T}'Enter your scrot.cloud username...' \
+            ${OK} ${CANCEL} ) 2>/dev/null
+    fi
+    ret=$?
+    if (( $ret == 0 ));then
+        user_name="${dlg}"
+        scrotcloud_url="https://scrot.cloud/${user_name}"
+        echo "SCROTCLOUD_USER=\"${user_name}\"" >> "${SETTINGS_FILE}" 
+    else
+        exit
+    fi
+}
+
+function run_browser(){     # run browser with API url, and switch to attention-seeking browser tab
+    local api_call="$1"     # function called from button in dialog
+
+    if [[ ${api_call} = "addclient" ]]; then
+        ${browser_cmd} "${API_URL}" 2>/dev/null
+    else
+        ${browser_cmd} "$1" 2>/dev/null
+    fi
+    switch_to_active
+}
+
+function switch_to_active(){   # switch to new window
+    local id
+    for id in $(wmctrl -l | awk '{ print $1 }'); do
+        # filter only windows demanding attention 
+        xprop -id "$id" | grep -q "_NET_WM_STATE_DEMANDS_ATTENTION"
+        if (( $? == 0 )); then
+            wmctrl -i -a "$id"
+        fi
+    done
+}
+
+function api_call(){
+    temp_file=$(mktemp --tmpdir response.XXX) # stores curl output for use by $response
+    curl_cmd="$1"
+    local message="$2"
+    # Run curl command passed as first arg; write output to tempfile; pipe to yad --progress
+    eval "${curl_cmd}" 2>&1 > "${temp_file}" | yad --progress --pulsate --auto-close \
+    --progress-text="${message}" \
+    --undecorated --on-top --sticky --center \
+    --borders=20 --button='Cancel':'/bin/bash -c "killall curl"' 2>/dev/null
+
+    # use bash built 'PIPESTATUS' to get curl exit code
+    PIPE=( "${PIPESTATUS[@]}" ) # get pipe array values (curl was stopped?)
+    response=$(cat "${temp_file}")  # used by calling function
+    #IMG_ID="$(jq -r '.data.id' <<< ${RESPONSE})" # used by check_image()
+    rm -f "${temp_file}"
+}
+
+function load_hosts(){
+#set -x
+    declare -a hosts_arr
+    declare dialog_list
+    
+    hosts_arr=( "$HOSTS_LIST" )
+    dialog_list="^$IMAGE_HOST"
+    for name in ${hosts_arr[@]};do
+        if [[ $name = "$IMAGE_HOST" ]];then
+            continue
+        else
+            dialog_list="$dialog_list!$name"
+        fi
+    done
+
+    dialog_list=$(echo "${dialog_list}" | tr -d '[:space:]')
+    echo "${dialog_list}" # return to list main()
+}
+### MAIN
+function main(){
+    source "${BL_YAD_INCLUDES}"
+    settings_conf
+    dialog_list=$(load_hosts)
+
+    set -x
+    local dlg=$(${DIALOGDEC} --on-top --form ${T}"$text" \
+    --image="${ICON}" \
+    --columns=2 \
+    --field=" Screenshooter:":CB "^scrot!maim" \
+    --field="Upload to host:":CB ${dialog_list} \
+    --field="           Region to capture:":CB "^Entire screen!Active window!Select area" \
+    --field="  Delay before capturing: ":NUM "2!1..20!1!!"  ) 2>/dev/null
+    
+    
+    return=$?
+    echo "$dlg"
+    
+    dlg=$(echo "${dlg}" | sed 's/ /_/g')
+    
+    declare -a choices=($(echo "${dlg}" | awk -F '|' '{print $1,$2,$3,$4}'))
+    screenshooter=${choices[0]} && echo $screenshooter
+    img_host=${choices[1]} && echo $img_host
+    area=${choices[2]} && echo "$area"
+    delay=${choices[3]} && echo "$delay"
+
+    case "${area}" in
+        Entire_screen   )   area="-f"
+                            ;;
+        Active_window   )   area="-w"
+                            ;;
+        Select_area     )   area="-s"
+                            ;;
+    esac
+    
+    if (( ${return} == 0 ));then
+        case "${img_host}" in
+            imgbb   )   run_imgbb 
+                        ;;
+            imgur   )   run_imgur
+                        ;;
+        scrot.cloud )   run_scrotcloud
+                        ;;
+                *   )   echo "Sorry, ${img_host} is not an upload candidate!"
+                        yad_error "  Sorry, \'${img_host}\' is not an upload candidate!"
+                        exit 1
+                        ;;
+        esac
+    else
+        exit
+    fi
+
+}
+
+########################################################################
+main "$@"
+exit
