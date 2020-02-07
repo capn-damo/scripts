@@ -25,8 +25,6 @@ from subprocess import Popen, PIPE, STDOUT
 import sys, time, os, ConfigParser, re
 import argparse
 
-#check_intervall = 0.4
-
 ap = argparse.ArgumentParser(description="Hotcorners")
 ap.add_argument("-k", "--kill", help="attempt to kill any running instances",
             action="store_true")
