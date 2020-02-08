@@ -76,7 +76,7 @@ elif opts.daemon:
         Config.set('Hot Corners','bottom_right_corner_command', '')
         Config.set('Hot Corners','polling_interval', '0.2')
         Config.set('Hot Corners','corner_delay', '0.2')
-        Config.set('Hot Corners','bounce_distance', '50')
+        Config.set('Hot Corners','bounce_distance', '40')
 
         Config.write(cfgfile)
         cfgfile.close()
