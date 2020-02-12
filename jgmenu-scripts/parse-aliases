@@ -16,7 +16,7 @@
 #           alias foo='bar'
 #           alias foo2='bar2'
 #       ####[FUNCTIONS_TITLE]####
-#           func_name(){
+#           func_name(){    # function description to be in submenu
 #               foo=bar
 #           }
 
