@@ -1,0 +1,106 @@
+#!/bin/bash
+#
+# termfetch-pipemenu:
+# A combination of scripts from @brontosaurusrex (pipeNeofetch and pipeScreenfetch)
+#
+# by @damo Feb2020
+#
+########################################################################
+
+USAGE='
+USAGE:    termfetch-pipemenu --[ob|jg] --[neo|screen] <[-h|--help]>
+-----
+
+    -h|--help   This USAGE
+
+    --ob        Output xml for use in an Openbox menu. For example:
+    
+                <menu id="neofetch" label="neofetch" execute="termfetch-pipemenu --ob --neo" />
+
+    --jg        Output for jgmenu. For example:
+
+                Run separately: "termfetch-pipemenu --jg --screen | jgmenu --simple"
+
+                Run in menu: "Neofetch,^pipe(termfetch-pipemenu --jg --neo)"
+                          or "Screenfetch,^pipe(jgmenu_run ob --cmd="termfetch-pipemenu --ob --screen"
+
+    --screen    Use screenfetch output for display.
+
+    --neo       Use neofetch output for display.
+'
+
+function getargs(){
+    while [[ ${#} != 0 ]]; do
+        case "$1" in
+            --jg        )   menu="jg_menu"
+                            ;;
+            --ob        )   menu="ob_menu"
+                            ;;
+            --neo       )   if type neofetch >/dev/null;then
+                                term_cmd="neo"
+                            else
+                                echo -e "\nneofetch needs to be installed!\n"
+                                exit 1
+                            fi
+                            ;;
+            --screen    )   if type screenfetch >/dev/null;then
+                                term_cmd="scrnfetch"
+                            else
+                                echo -e "\nscreenfetch needs to be installed!\n"
+                                exit 1
+                            fi
+                            ;;
+            -h|--help   )   echo "${USAGE}"
+                            exit 0
+                            ;;
+            *           )   message="\nFailed to parse options...\n"
+                                echo -e "${message}" >&2
+                                echo "${USAGE}" 
+                                exit 1
+                                ;;
+        esac
+        shift
+    done || { echo "Failed to parse options" >&2 && exit 1; }
+}
+
+function write_ob(){
+    echo "<openbox_pipe_menu>"
+    if [[ ${term_cmd} = "neo" ]];then
+        neofetch --stdout --disable title underline model term | \
+        while read -r line;do   # items loop over lines
+            line=${line//_/__}  # Replace all underscores with double-underscores, so keyboard accelerator aren't displayed
+            [[ "$line" == "" ]] && continue ||  echo "<item label=\"$line\" />" 
+        done
+    elif [[ ${term_cmd} = "scrnfetch" ]];then
+        screenfetch -nN | while read -r line;do 
+                            echo "<item label=\"$line\" />"
+                            done
+    fi
+    echo "</openbox_pipe_menu>"
+}
+
+function write_jg(){
+    if [[ ${term_cmd} = "neo" ]];then
+        cmd="neofetch --stdout --disable title underline model term"
+    else
+        cmd="screenfetch -nN"
+    fi
+    while read -r line;do
+        output="${output}${line}\n"
+    done <<< $(${cmd})
+
+    echo -e "${output}"
+}
+
+function write_menu(){
+    if [[ ${menu} = "ob_menu" ]];then
+        write_ob
+    elif [[ ${menu} = "jg_menu" ]];then
+        write_jg
+    fi
+}
+
+[[ ${#} == 0 ]] && echo "No script args" && exit 1
+declare output
+getargs "${@}"
+write_menu

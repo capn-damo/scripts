@@ -1,0 +1,42 @@
+#!/bin/bash
+##
+## bl-xbindkeys-pipemenu
+
+BL_COMMON_LIBDIR="/usr/lib/bunsen/common"
+KBINDS="$HOME/.xbindkeysrc"
+
+declare -a KB_ARR
+declare -a CMD_ARR
+
+if ! . "$BL_COMMON_LIBDIR/bl-include.cfg" 2> /dev/null; then
+    echo $"Error: Failed to locate bl-include.cfg in $BL_COMMON_LIBDIR" >&2
+    exit 1
+fi
+
+jgmenuSubmenu 'run_commands' 'Run commands'
+jgmenuSeparator 'run_commands' 'Run commands'
+
+while read -r line;do
+    if [[ -n $line ]];then 
+        if [[ ${line} = \#* ]];then
+            continue
+        elif [[ ${line} = \"* ]];then
+            CMD=$(echo "${line}" | sed -e 's/"//g')
+            CMD_ARR+=("${CMD}")
+        else
+            KB=$(echo "${line}" | sed -e 's/Mod4/Super/' -e 's/ //g')
+            KB_ARR+=("${KB}")
+        fi
+    fi
+done < "${KBINDS}"
+
+i=0
+for c in "${KB_ARR[@]}";do
+    curr_item=$(printf "%-18s %s" "${KB_ARR[$i]}" "${CMD_ARR[$i]}")
+    jgmenuItem 'run_commands' "${curr_item}"
+    i=$((i+1))
+done
+
+jgmenuEnd
+
+exit

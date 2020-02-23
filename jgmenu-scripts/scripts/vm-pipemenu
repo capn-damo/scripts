@@ -1,0 +1,94 @@
+#!/bin/bash
+##
+## vm-pipemenu
+##
+## Bunsenlabs pipemenu script to manage virtual machines from main menu
+## by @damo 2020
+##
+## To include in jgmenu, add 'Virtual Machines,^pipe(bl-vm-pipemenu)'
+##
+## To run as standalone menu: 'bl-vm-pipemenu | jgmenu --simple'
+##
+########################################################################
+#   1) In '/etc/libvirt/libvirt.conf', set 'uri_default = "qemu:///system"'
+#      Then copy 'libvirt.conf' to '~/.config/libvirt/'
+#   2) In GUEST, to allow remote shutdown (should be able to do this with systemd?)
+#           install 'acpi-support-base';
+#           sudo systemctl enable acpid.service
+#
+#           sudo nano /etc/acpi/events/powerbtn
+#           add:    event=button/power
+#                   action=/sbin/poweroff
+#
+#           sudo systemctl restart acpid.service
+#
+#   3)  In host, to allow virsh without sudo:
+#
+#           Create 'libvirt' group, and add $USER to it;
+#           Edit '/etc/libvirt/libvirtd.conf' and set:
+#
+#           unix_sock_group = "libvirt"
+#           unix_sock_rw_perms = "0770"
+#           auth_unix_rw = "polkit"     (necessary ?)
+
+#           sudo systemctl restart libvirtd.service
+#
+#   4)  Shared Clipboard:
+#           In HOST:    install 'spice-client-gtk'
+#           In GUEST:   install 'spice-vdagent', then log out/in
+#
+########################################################################
+
+BL_COMMON_LIBDIR="/usr/lib/bunsen/common"   # source jgmenu helper functions
+declare -a DOMAINS
+declare -a RUN
+
+if ! . "$BL_COMMON_LIBDIR/bl-include.cfg" 2> /dev/null; then
+    echo $"Error: Failed to locate bl-include.cfg in $BL_COMMON_LIBDIR" >&2
+    exit 1
+fi
+
+list=$(virsh list --all)                # get all VM's
+
+function write-item(){                  # populate submenu with VM's
+    item=$(printf "%-5s %s" "$2" "$1")
+    jgmenuSubmenu 'root' "$1" "${item}"
+    jgmenuSubmenu "$1" "${item}"
+    
+    if [[ $2 = "ON" ]];then
+        jgmenuItem "$1" "shutdown" "virsh shutdown $1 --mode acpi"
+        jgmenuItem "$1" "reboot" "virsh shutdown $1 --mode acpi;virsh start $1;virt-viewer -w $1"
+        jgmenuItem "$1" "save state and shutdown" "virsh save $1 $1_config.xml --running"
+    else
+        jgmenuItem "$1" "start" "virsh start $1;virt-viewer -w $1"
+        if [[ -f "$1_config.xml" ]];then
+            jgmenuItem "$1" "restore saved state" "virsh restore $1_config.xml --running;virt-viewer -w $1"
+        fi
+    fi
+}
+
+count=1
+while read -r line;do       # get state of VM's from list, add to arrays
+    if (( count > 2 ));then
+        domain="$(awk '{print $2}' <<< "${line}")"
+        run="$(awk '{print $3}' <<< "${line}")"
+        [[ ${run} = "running" ]] && state="ON" || state="OFF"
+        
+        DOMAINS+=("${domain}")
+        RUN+=("${state}")
+    fi
+    count=$((count+1))
+done <<< "${list}"
+
+### Write out markup for jgmenu
+echo "VM Manager GUI,virt-manager"
+echo "^sep(Machines)"
+
+i=0
+for d in "${DOMAINS[@]}";do                 # submenu for each VM (domain)
+    write-item "${DOMAINS[i]}" "${RUN[i]}"
+    i=$((i+1))
+done
+
+jgmenuEnd
+exit

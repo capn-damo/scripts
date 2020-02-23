@@ -1,0 +1,51 @@
+#!/bin/bash
+##
+## scrots-pipemenu - write csv markup to jgmenu
+##
+## written by @damo 2020
+
+#scrots.csv
+SEP='^sep(Screenshots)'
+
+CHK_Submenus='
+Screenshot to clipboard,^checkout(Clipscrot)
+scrot,^checkout(scrot)
+Upload scrot to Imgur,^checkout(imgur)
+#xfce4-screenshooter,^checkout(screenshooter)
+xfce4-screenshooter
+
+^tag(Clipscrot)
+Desktop Screenshot,scrotclip.sh clipall
+Desktop Screenshot - delayed clean,scrotclip.sh clipclean
+Desktop Screenshot - delayed 10,scrotclip.sh clipall10
+Active Window Screenshot,scrotclip.sh clipwin
+Selected Area Screenshot,scrotclip.sh clipsel
+
+^tag(scrot)
+scrot Now scrot,/home/damo/images/screenshots/%F-%H-%M-%S_scrot.png -e "bl-image-viewer /home/damo/images/screenshots/%F-%H-%M-%S_scrot.png"
+scrot In 5 secs...,scrot -d 5 /home/damo/images/screenshots/%F-%H-%M-%S_scrot.png -e "bl-image-viewer /home/damo/images/screenshots/%F-%H-%M-%S_scrot.png"
+scrot In 10 secs...,scrot -d 10 /home/damo/images/screenshots/%F-%H-%M-%S_scrot.png -e "bl-image-viewer /home/damo/images/screenshots/%F-%H-%M-%S_scrot.png"
+scrot Select Area,scrot -s /home/damo/images/screenshots/%F-%H-%M-%S_scrot.png -e "bl-image-viewer /home/damo/images/screenshots/%F-%H-%M-%S_scrot.png"
+scrot Current Focus,scrot -u /home/damo/images/screenshots/%F-%H-%M-%S_scrot.png -e "bl-image-viewer /home/damo/images/screenshots/%F-%H-%M-%S_scrot.png"
+scrot Multi-Monitor,scrot -m /home/damo/images/screenshots/%F-%H-%M-%S_scrot.png -e "bl-image-viewer /home/damo/images/screenshots/%F-%H-%M-%S_scrot.png"
+
+^tag(imgur)
+screenshot Now,imgur -l
+screenshot In 5 secs...,imgur -l -d 5
+screenshot In 10 secs...,imgur -l -d 10
+screenshot Select Area,imgur -l -s
+screenshot Current Window,imgur -l -w
+
+^tag(screenshooter)
+All,xfce4-screenshooter
+
+^tag(screenshots) ######################################################
+Screenshot to clipboard,^checkout(Clipscrot)
+scrot,^checkout(scrot)
+Upload scrot to Imgur,^checkout(imgur)
+xfce4-screenshooter,xfce4-screenshooter
+'
+
+echo "$SEP $CHK_Submenus"
+
+exit

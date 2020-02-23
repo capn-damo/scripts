@@ -1,0 +1,97 @@
+#!/bin/bash
+##
+## coding-pipemenu - run terminal and geany, using geany project conf.
+##
+## written by @damo 2020
+
+BL_COMMON_LIBDIR="/usr/lib/bunsen/common"   # source jgmenu helper functions
+
+CFG_DIR="${HOME}/.config/geany-coding"
+PROJECT_DIR="${HOME}/projects"
+
+arg="$1"
+declare -a PROJECTS_ARR         # array of project names
+CASE_ARR=("-h" "--help" "--pipe")        # array of script args
+unset P_TXT
+
+HELP_TXT="
+\tUSAGE:  'coding.sh [-h|--help|<--pipe>|<project>]'\n\n \
+\tGeany coding projects available:\n \
+"
+
+if ! . "$BL_COMMON_LIBDIR/bl-include.cfg" 2> /dev/null; then
+    echo $"Error: Failed to locate bl-include.cfg in $BL_COMMON_LIBDIR" >&2
+    exit 1
+fi
+
+function help(){    # build USAGE/HELP message
+    declare MSG
+    for p in "${PROJECTS_ARR[@]}";do
+        P_TXT="${P_TXT}\n\t  "\'"${p}"\'
+        MSG="${MSG}\t${p}\n"
+    done
+    # test if script started in terminal, or by menu or gui
+    if [[ -t 1 ]];then      # see man bash
+        echo -e "${HELP_TXT}${P_TXT}\n"                 # echo to terminal
+    else
+        MSG="\n\n${MSG}"
+        notify-send "Usage:$(echo -e ${HELP_TXT})$(echo -e ${MSG})"  # show in notification
+    fi                                                               # if called from gui
+}
+
+function write_menu(){   # if called by jgmenu ('coding-pipemenu --pipe')
+    cmd_script="$HOME/bin/coding-commands.sh"
+    USAGE="USAGE:  'coding-pipemenu [-h|--help|&lt;--pipe&gt;|&lt;project&gt;]'"
+
+    # include pipemenu for jgmenu usage
+    echo "jgmenu script USAGE ,^pipe(jg-usage-pipemenu)"
+    echo "^sep()"
+    
+    echo "Coding pipemenu HELP,^checkout(help)"
+    echo "^sep(Geany coding projects)"
+    
+    [[ ! -x "${cmd_script}" ]] && echo "coding-commands.sh not found" && exit 1
+    for p in "${PROJECTS_ARR[@]}";do
+        echo  "$p,${cmd_script} ${CFG_DIR} ${PROJECT_DIR} $p"
+    done
+    echo "^tag(help)"
+    echo "${USAGE}"
+}
+
+for d in "${PROJECT_DIR}"/*;do      # get project names, build arrays
+    if [[ -d $d ]];then
+        project="${d##*/}"
+        PROJECTS_ARR+=("${project}")
+        CASE_ARR+=("${project}")
+    fi
+done
+
+match=0                         # see if allowed script arg was used
+for j in "${CASE_ARR[@]}";do
+    if [[ $j = "${arg}" ]];then
+        match=1
+        continue
+    fi
+done
+if (( match = 1 ));then
+    for i in "${CASE_ARR[@]}";do
+        if [[ $i = "${arg}" ]];then
+            if [[ $i = "-h" ]] || [[ $i = "--help" ]];then
+                 help
+                 exit
+            elif [[ ${arg} = "--pipe" ]];then
+                    write_menu
+                    jgmenuEnd
+                    exit
+
+            else
+                geany -i -c "${CFG_DIR}" "${PROJECT_DIR}/${arg}/${arg}.geany" 2>/dev/null &
+                terminator -l coding 2>/dev/null &
+            fi
+        fi
+    done
+else
+    echo "That arg is invalid!"
+    help
+fi
+exit
