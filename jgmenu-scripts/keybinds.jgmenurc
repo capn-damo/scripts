@@ -31,3 +31,4 @@ color_title_border  = #74998B 8
 color_sep_fg = #535353 100
 sep_markup = foreground="#cc666a"
 color_scroll_ind = #cc666a 100
+
