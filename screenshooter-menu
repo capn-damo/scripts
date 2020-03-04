@@ -1,0 +1,173 @@
+#/bin/bash
+#
+########## screenshooter-menu ##########################################
+#
+# Screenshooter menu, with desktop image shown.
+# The idea comes from Mabox Linux's 'mb-jgtools' script
+#
+# written by @damo, March 2020
+#
+########################################################################
+
+### FUNCTIONS ###
+
+function mkconfigfile() {   # set up jgmenu config
+cat > ${CONFIG_FILE} <<EOF 
+tint2_look          = 0
+position_mode       = center
+
+menu_width          = 348
+menu_height_min     = 0
+menu_height_max     = 510
+menu_margin_x       = 10
+menu_margin_y       = 40
+menu_padding_top    = 220
+menu_padding_right  = 10
+menu_padding_bottom = 16
+menu_padding_left   = 10
+menu_border         = 1
+
+item_height         = 20
+item_radius         = 2
+item_border         = 1
+item_halign         = left
+item_valign         = top
+
+sep_halign          = right
+#sub_padding_left    = 10
+
+color_menu_bg       = #212121 80
+color_menu_border   = #eeeeee 50
+#color_norm_fg      = #eeeeee 100
+color_sel_bg        = #ffffff 10
+#color_sel_fg       = #eeeeee 100
+color_sel_border    = #eeeeee 8
+color_scroll_ind    = #eeeeee 50
+
+icon_theme          = Paper
+icon_size           = 0
+arrow_string        = ›
+arrow_width         = 16
+EOF
+}
+
+function screenshots() {    # Create jgmenu for taking screenshots
+    # 'tookscrot' is a flag file for whether to display save/delete dialog
+    SCRNSHOTS="Screenshot tool"
+    FULLSCR="Full screen"
+    ACTIVE_WIN="Active window"
+    ACTIVE_WIN_NO_DECOR="Active window (no decorations)"
+    SELECTED="Selected Area or Window"
+    SEC5="In 5 seconds"
+    SEC10="In 10 seconds"
+    
+    [[ -d "$(xdg-user-dir PICTURES)/screenshots)" ]] || mkdir -p "$(xdg-user-dir PICTURES)/screenshots"
+    
+    get_viewer
+    
+    THUMB="$(DISPLAY=:0 scrot -t 340x213 ${IMG} -e 'echo $m')"
+
+cat <<EOF > ${MENU_ITEMS}
+@icon,,4,4,340,100,4,left,top,,,${THUMB}
+^sep(${SCRNSHOTS})
+    ${FULLSCR},^root(full)
+    ${ACTIVE_WIN},^root(window)
+    ${ACTIVE_WIN_NO_DECOR},^root(borderless)
+    ${SELECTED},scrot -s ${IMG} -e ${VIEW} && touch /tmp/tookscrot
+#   Multimonitor, scrot -m ${IMG} && touch /tmp/tookscrot
+^sep()
+   Open screenshot directory,xdg-open "$(xdg-user-dir PICTURES)/screenshots"
+^sep()
+   Cancel	<small>esc</small>,exit 1
+^tag(full)
+    ^sep(${FULLSCR})
+       Now,scrot ${IMG} -e ${VIEW} && touch /tmp/tookscrot
+       ${SEC5},scrot -d 5 ${IMG} -e ${VIEW} && touch /tmp/tookscrot
+       ${SEC10},scrot -d 10 ${IMG} -e ${VIEW} && touch /tmp/tookscrot
+    ^sep()
+       back,^back()
+^tag(window)
+    ^sep(${ACTIVE_WIN})
+       Now,scrot -d 1 -u -b ${IMG} -e ${VIEW} && touch /tmp/tookscrot
+       ${SEC5},scrot -d 5 -u -b ${IMG} -e ${VIEW} && touch /tmp/tookscrot
+       ${SEC10},scrot -d 10 -u -b ${IMG} -e ${VIEW} && touch /tmp/tookscrot
+    ^sep()
+       back,^back()
+^tag(borderless)
+    ^sep($ACTIVE_WIN_NO_DECOR)
+       Now,scrot -d 1 -u ${IMG} -e ${VIEW} && touch /tmp/tookscrot
+       ${SEC5},scrot -d 5 -u ${IMG} -e ${VIEW} && touch /tmp/tookscrot
+       ${SEC10},scrot -d 10 -u ${IMG} -e ${VIEW} && touch /tmp/tookscrot
+    ^sep()
+       back,^back()
+EOF
+}
+
+function get_viewer(){  # find which image viewer is being used
+    VIEWER="$(basename $(update-alternatives --get-selections | \
+    awk '$1=="bl-image-viewer"{print $NF}'))"
+
+    case "${VIEWER}" in
+        feh )   SCREEN=$(xdotool getdisplaygeometry)    # set size of feh window
+                w=$(( ${SCREEN/% *}*9/10 ))
+                h=$(( ${SCREEN/#* }*9/10 ))
+                VIEW="'feh --scale-down --geometry ${w}x${h} ${IMG}'"
+                ;;
+        *   )   VIEW="'bl-image-viewer ${IMG}'"
+    esac
+}
+
+function save_delete() {    # Dialog to save or delete temporary image file
+    # Only show dialog if flag file exists ie screenshot was taken
+    if [[ -f "/tmp/tookscrot" ]];then
+        ANS=$(yad --form --undecorated --center --text="\n Save screenshot? \n" \
+            --button=OK:0 --button=No:1 \
+            ) 2>/dev/null
+        ret=$?
+        if (( $ret == 0 ));then     # copy to 'screenshots' dir
+            IMG_FILE="$(xdg-user-dir PICTURES)/screenshots/$(date +'%F:%R').png"
+            cp "${IMG}" "${IMG_FILE}" 2>/dev/null
+        fi
+        rm -f "/tmp/tookscrot" 2>/dev/null
+    fi
+}
+
+### END FUNCTIONS ###
+
+# create temp files for jgmenu config and csv, and scrot image
+CONFIG_FILE=$(mktemp --tmpdir jgcfg.XXX)
+MENU_ITEMS=$(mktemp --tmpdir jgmenu.XXX)
+IMG=$(mktemp --tmpdir scrot.XXX.png)
+
+mkconfigfile        # set up config 
+screenshots         # set up menu csv
+
+# Run menu
+jgmenu --simple --config-file=${CONFIG_FILE} --csv-file=${MENU_ITEMS} 2>/dev/null
+
+sleep 0.4           # wait for scrot to be taken, and menu to close
+IMG_FILE="$(basename ${IMG})"
+while true;do       # poll if image viewer window is still open
+    if wmctrl -l | grep -w "${IMG_FILE}" 2>/dev/null;then
+        sleep 1
+        continue
+    else            # window has closed, so break from loop
+        break
+    fi
+done
+
+# save or delete scrot
+save_delete
+
+# Clean up temp files
+declare -a VARS
+VARS=("${CONFIG_FILE}" "${MENU_ITEMS}" )
+for img in /tmp/scrot*.png;do
+    VARS+=( "${img}" )
+done
+
+for v in "${VARS[@]}";do
+    rm -f "${v}" || echo "{v} couldn't be deleted"
+done
+
+exit
